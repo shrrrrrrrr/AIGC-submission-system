@@ -8,10 +8,15 @@ import { AuthService } from "./auth/service.js";
 import type { User } from "./auth/types.js";
 
 const registerSchema = z.object({ email: z.string(), password: z.string() });
-const loginSchema = registerSchema;
+const loginSchema = registerSchema.extend({ mfaCode: z.string().length(6).optional() });
+const resetRequestSchema = z.object({ email: z.string() });
+const resetConfirmSchema = z.object({ token: z.string().min(1), newPassword: z.string() });
+const SESSION_COOKIE = "__Host-chinavr-session";
+const CSRF_COOKIE = "chinavr-csrf";
 
 export type AppDependencies = {
   auth: AuthService;
+  mfaVerifier?: (user: User, code: string) => Promise<boolean>;
 };
 
 export function createApp(dependencies: AppDependencies): Hono<RequestContext> {
@@ -63,10 +68,36 @@ export function createApp(dependencies: AppDependencies): Hono<RequestContext> {
         clientKey,
         () => limiter.allow(),
         () => limiter.reset(),
+        body.data.mfaCode,
+        dependencies.mfaVerifier,
       );
-      setCookie(c, "session", result.rawSessionToken, { httpOnly: true, secure: true, sameSite: "Lax", path: "/", maxAge: 28_800 });
-      setCookie(c, "csrf", result.csrfToken, { httpOnly: false, secure: true, sameSite: "Lax", path: "/", maxAge: 28_800 });
+      setCookie(c, SESSION_COOKIE, result.rawSessionToken, { httpOnly: true, secure: true, sameSite: "Lax", path: "/", maxAge: 28_800 });
+      setCookie(c, CSRF_COOKIE, result.csrfToken, { httpOnly: false, secure: true, sameSite: "Lax", path: "/", maxAge: 28_800 });
       return c.json({ user: publicUser(result.user), expiresAt: result.expiresAt.toISOString(), requestId });
+    } catch (error) {
+      return handleError(c, error, requestId);
+    }
+  });
+
+  app.post("/api/v1/auth/password-reset/request", async (c) => {
+    const requestId = c.get("requestId");
+    const body = resetRequestSchema.safeParse(await safeJson(c));
+    if (!body.success) return c.json(errorBody("INVALID_REQUEST", "请求参数不完整", requestId), 422);
+    try {
+      await dependencies.auth.requestPasswordReset(body.data.email, requestId, c.req.header("x-forwarded-for"));
+      return c.json({ message: "如果邮箱对应账号，我们会发送重置邮件", requestId }, 202);
+    } catch (error) {
+      return handleError(c, error, requestId);
+    }
+  });
+
+  app.post("/api/v1/auth/password-reset/confirm", async (c) => {
+    const requestId = c.get("requestId");
+    const body = resetConfirmSchema.safeParse(await safeJson(c));
+    if (!body.success) return c.json(errorBody("INVALID_REQUEST", "请求参数不完整", requestId), 422);
+    try {
+      await dependencies.auth.confirmPasswordReset(body.data.token, body.data.newPassword, requestId, c.req.header("x-forwarded-for"));
+      return c.body(null, 204);
     } catch (error) {
       return handleError(c, error, requestId);
     }
@@ -74,20 +105,20 @@ export function createApp(dependencies: AppDependencies): Hono<RequestContext> {
 
   app.post("/api/v1/auth/logout", async (c) => {
     const requestId = c.get("requestId");
-    const sessionResult = await dependencies.auth.getSession(getCookie(c, "session"));
+    const sessionResult = await dependencies.auth.getSession(getCookie(c, SESSION_COOKIE));
     if (!sessionResult) return c.json(errorBody("UNAUTHENTICATED", "请先登录", requestId), 401);
-    if (c.req.header("x-csrf-token") !== getCookie(c, "csrf") || c.req.header("x-csrf-token") !== sessionResult.session.csrfToken) {
+    if (c.req.header("x-csrf-token") !== getCookie(c, CSRF_COOKIE) || c.req.header("x-csrf-token") !== sessionResult.session.csrfToken) {
       return c.json(errorBody("CSRF_INVALID", "请求校验失败", requestId), 403);
     }
     await dependencies.auth.logout(sessionResult.session, requestId, c.req.header("x-forwarded-for"));
-    deleteCookie(c, "session", { path: "/" });
-    deleteCookie(c, "csrf", { path: "/" });
+    deleteCookie(c, SESSION_COOKIE, { path: "/", secure: true });
+    deleteCookie(c, CSRF_COOKIE, { path: "/" });
     return c.body(null, 204);
   });
 
   app.get("/api/v1/me", async (c) => {
     const requestId = c.get("requestId");
-    const sessionResult = await dependencies.auth.getSession(getCookie(c, "session"));
+    const sessionResult = await dependencies.auth.getSession(getCookie(c, SESSION_COOKIE));
     if (!sessionResult) return c.json(errorBody("UNAUTHENTICATED", "请先登录", requestId), 401);
     return c.json({ user: publicUser(sessionResult.user), requestId });
   });

@@ -2,18 +2,21 @@ import { AuthError, GENERIC_AUTH_ERROR } from "./errors.js";
 import { hashOpaqueToken, newId, newOpaqueToken, normalizeEmail } from "./crypto.js";
 import { hashPassword, verifyPassword } from "./password.js";
 import type { AuthRepository } from "./repository.js";
-import type { Session, User, VerificationToken } from "./types.js";
+import type { PasswordResetToken, Session, User, VerificationToken } from "./types.js";
 
 const DUMMY_PASSWORD_HASH =
   "$argon2id$v=19$m=19456,t=2,p=1$t8eh3ObJ2g6AYcderHtcYg$j4XUJ0rmLhurjhF8z3qn8sesmNuycwyiL52wALCbrv4";
 
 export type Mailer = {
   sendEmailVerification(email: string, rawToken: string): Promise<void>;
+  sendPasswordReset?(email: string, rawToken: string): Promise<void>;
 };
 
 export type Clock = {
   now(): Date;
 };
+
+export type MfaVerifier = (user: User, code: string) => Promise<boolean>;
 
 export class AuthService {
   constructor(
@@ -72,8 +75,11 @@ export class AuthService {
       throw new AuthError("INVALID_VERIFICATION_TOKEN", 400, "验证链接无效或已过期");
     }
 
-    await this.repository.updateVerificationToken({ ...token, consumedAt: now });
-    await this.repository.updateUser({ ...user, emailVerifiedAt: now });
+    const consumedUserId = await this.repository.consumeVerificationTokenAndVerifyUser(token.tokenHash, now);
+    if (!consumedUserId || consumedUserId !== user.id) {
+      await this.audit("auth.verify_email", "failure", requestId, ip, { reason: "already_consumed" });
+      throw new AuthError("INVALID_VERIFICATION_TOKEN", 400, "验证链接无效或已过期");
+    }
     await this.audit("auth.verify_email", "success", requestId, ip, { userId: user.id });
   }
 
@@ -84,6 +90,8 @@ export class AuthService {
     ip: string | undefined,
     allowLogin: () => boolean,
     resetLoginFailures: () => void,
+    mfaCode?: string,
+    mfaVerifier?: MfaVerifier,
   ): Promise<{ user: User; rawSessionToken: string; csrfToken: string; expiresAt: Date }> {
     if (!allowLogin()) {
       await this.audit("auth.login", "failure", requestId, ip, { reason: "rate_limited" });
@@ -97,6 +105,12 @@ export class AuthService {
     if (!user || !passwordMatches || !user.emailVerifiedAt) {
       await this.audit("auth.login", "failure", requestId, ip, { reason: "invalid_credentials" });
       throw new AuthError("INVALID_CREDENTIALS", 401, GENERIC_AUTH_ERROR);
+    }
+
+    const protectedRole = user.roles.some((role) => role === "reviewer" || role === "event_admin" || role === "super_admin");
+    if (protectedRole && (!user.mfaEnabled || !mfaCode || !mfaVerifier || !(await mfaVerifier(user, mfaCode)))) {
+      await this.audit("auth.login", "failure", requestId, ip, { reason: "mfa_required_or_invalid", userId: user.id });
+      throw new AuthError("MFA_REQUIRED", 401, "该账号需要完成多因素认证");
     }
 
     resetLoginFailures();
@@ -131,6 +145,39 @@ export class AuthService {
     await this.audit("auth.logout", "success", requestId, ip, { userId: session.userId });
   }
 
+  async requestPasswordReset(emailInput: string, requestId: string, ip?: string): Promise<void> {
+    const email = normalizeEmail(emailInput);
+    validateEmail(email);
+    const user = await this.repository.findUserByEmail(email);
+    if (!user || !this.mailer.sendPasswordReset) {
+      await this.audit("auth.password_reset.request", "success", requestId, ip);
+      return;
+    }
+    const now = this.clock.now();
+    const rawToken = newOpaqueToken();
+    const token: PasswordResetToken = {
+      tokenHash: hashOpaqueToken(rawToken),
+      userId: user.id,
+      expiresAt: new Date(now.getTime() + 60 * 60 * 1000),
+      consumedAt: null,
+    };
+    await this.repository.insertPasswordResetToken(token);
+    await this.mailer.sendPasswordReset(email, rawToken);
+    await this.audit("auth.password_reset.request", "success", requestId, ip);
+  }
+
+  async confirmPasswordReset(rawToken: string, newPassword: string, requestId: string, ip?: string): Promise<void> {
+    validatePassword(newPassword);
+    const now = this.clock.now();
+    const passwordHash = await hashPassword(newPassword);
+    const userId = await this.repository.consumePasswordResetAndUpdatePassword(hashOpaqueToken(rawToken), now, passwordHash);
+    if (!userId) {
+      await this.audit("auth.password_reset.confirm", "failure", requestId, ip, { reason: "invalid_or_expired" });
+      throw new AuthError("INVALID_PASSWORD_RESET_TOKEN", 400, "重置链接无效或已过期");
+    }
+    await this.audit("auth.password_reset.confirm", "success", requestId, ip, { userId });
+  }
+
   private async audit(
     action: string,
     outcome: "success" | "failure",
@@ -152,7 +199,7 @@ function validateEmail(email: string): void {
 }
 
 function validatePassword(password: string): void {
-  if (password.length < 12 || password.length > 256) {
-    throw new AuthError("INVALID_PASSWORD", 422, "密码长度需为 12 至 256 个字符");
+  if (password.length < 15 || password.length > 256) {
+    throw new AuthError("INVALID_PASSWORD", 422, "密码长度需为 15 至 256 个字符");
   }
 }

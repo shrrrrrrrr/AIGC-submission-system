@@ -13,6 +13,10 @@ const mailer = {
     void rawToken;
     console.info(JSON.stringify({ event: "email_verification_stub", email }));
   },
+  async sendPasswordReset(email: string, rawToken: string): Promise<void> {
+    void rawToken;
+    console.info(JSON.stringify({ event: "password_reset_stub", email }));
+  },
 };
 const app = createApp({ auth: new AuthService(repository, mailer) });
 const port = Number(process.env.PORT || 3000);

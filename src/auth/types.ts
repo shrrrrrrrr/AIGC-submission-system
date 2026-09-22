@@ -34,6 +34,13 @@ export type VerificationToken = {
   consumedAt: Date | null;
 };
 
+export type PasswordResetToken = {
+  tokenHash: string;
+  userId: string;
+  expiresAt: Date;
+  consumedAt: Date | null;
+};
+
 export type AuditEvent = {
   action: string;
   outcome: "success" | "failure";
