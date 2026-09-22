@@ -4,12 +4,17 @@ import { createApp } from "./app.js";
 import { MfaService } from "./auth/mfa.js";
 import { InMemoryAuthRepository } from "./auth/repository.js";
 import { AuthService } from "./auth/service.js";
+import { InMemorySubmissionRepository } from "./submission/repository.js";
+import { SubmissionService } from "./submission/service.js";
 
 if (process.env.NODE_ENV === "production") {
   throw new Error("生产环境禁止使用内存仓储；请先配置并启用 PostgreSQL 适配器");
 }
 
 const repository = new InMemoryAuthRepository();
+const submissionRepository = new InMemorySubmissionRepository();
+const approvedVideoHosts = (process.env.APPROVED_VIDEO_PLATFORMS || "").split(",").map((host) => host.trim()).filter(Boolean);
+const submissions = new SubmissionService(submissionRepository, approvedVideoHosts, (event) => repository.insertAuditEvent(event));
 const mfaKey = process.env.MFA_ENCRYPTION_KEY ? Buffer.from(process.env.MFA_ENCRYPTION_KEY, "base64url") : randomBytes(32);
 const mfa = new MfaService(repository, mfaKey);
 const mailer = {
@@ -22,7 +27,7 @@ const mailer = {
     console.info(JSON.stringify({ event: "password_reset_stub", email }));
   },
 };
-const app = createApp({ auth: new AuthService(repository, mailer), mfa });
+const app = createApp({ auth: new AuthService(repository, mailer), mfa, submissions });
 const port = Number(process.env.PORT || 3000);
 
 serve({ fetch: app.fetch, port });

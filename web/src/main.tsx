@@ -1,7 +1,8 @@
-import { StrictMode, useEffect, useMemo, useState } from "react";
+import { StrictMode, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
+import { SubmissionPage } from "./SubmissionPage";
 
 type Route = "home" | "login" | "submit";
 type Notice = { tone: "success" | "error" | "info"; text: string };
@@ -52,11 +53,11 @@ function App() {
   };
 
   return (
-    <div className="site-shell">
+    <div className={`site-shell route-${route}`}>
       <a className="skip-link" href="#main-content">跳到主要内容</a>
       <Header menuOpen={menuOpen} onMenuToggle={() => setMenuOpen((open) => !open)} onNavigate={navigate} />
       <main id="main-content">
-        {route === "home" ? <Home onNavigate={navigate} /> : route === "login" ? <LoginPage onNavigate={navigate} /> : <SubmissionPage onNavigate={navigate} />}
+        {route === "home" ? <Home onNavigate={navigate} /> : route === "login" ? <LoginPage onNavigate={navigate} /> : <SubmissionPage />}
       </main>
       <Footer onNavigate={navigate} />
     </div>
@@ -64,7 +65,7 @@ function App() {
 }
 
 function readRoute(): Route {
-  const hash = window.location.hash.slice(1);
+  const hash = window.location.hash.slice(1).split("?")[0];
   return hash === "login" ? "login" : hash === "submit" ? "submit" : "home";
 }
 
@@ -173,32 +174,6 @@ function LoginPage({ onNavigate }: { onNavigate: (href: string) => void }) {
 
   return <section className="auth-page section-pad" aria-labelledby="login-title"><div className="auth-layout"><div className="auth-intro"><div className="section-kicker inverse"><span>ACCOUNT / 01</span><span>SECURE ENTRY</span></div><h1 id="login-title">把下一步<br /><em>交给作品。</em></h1><p>登录后可以继续草稿、检测公开视频链接，并查看投稿状态。登录失败时我们不会透露邮箱是否已注册。</p><a className="text-link light-link" href="#home" onClick={() => onNavigate("#home")}>返回公开站 <span aria-hidden="true">↗</span></a></div><form className="auth-card" onSubmit={submit}><div className="card-topline"><span>CHINAVR 2026</span><span className="mono">AUTH / 01</span></div><label htmlFor="email">邮箱地址<span className="required">*</span></label><input id="email" name="email" type="email" autoComplete="email" spellCheck={false} value={email} onChange={(event) => setEmail(event.target.value)} required placeholder="name@example.com" /><label htmlFor="password">密码<span className="required">*</span></label><input id="password" name="password" type="password" autoComplete="current-password" spellCheck={false} value={password} onChange={(event) => setPassword(event.target.value)} required minLength={15} placeholder="至少 15 个字符" /><div className="form-meta"><a href="#register" onClick={(event) => { event.preventDefault(); setNotice({ tone: "info", text: "注册页面将在账号接口完成后接入。" }); }}>还没有账号？注册</a><a href="#reset" onClick={(event) => { event.preventDefault(); setNotice({ tone: "info", text: "重置密码会通过邮箱发送一次性链接。" }); }}>忘记密码</a></div>{notice && <div className={`form-notice ${notice.tone}`} role={notice.tone === "error" ? "alert" : "status"}>{notice.text}</div>}<button className="button button-cinnabar button-full" type="submit" disabled={submitting}>{submitting ? "正在验证…" : "安全登录"} <span aria-hidden="true">↗</span></button><p className="auth-footnote">会话使用安全 Cookie 保存；请勿在公共设备上保存密码。</p></form></div></section>;
 }
-
-function SubmissionPage({ onNavigate }: { onNavigate: (href: string) => void }) {
-  const [activeStep, setActiveStep] = useState(0);
-  const [saved, setSaved] = useState(false);
-  const formSteps = ["方向与形式", "主体作品链接", "制作解析链接", "导览与体验", "权利与 AI 披露", "确认提交"];
-  return <section className="submission-page section-pad" aria-labelledby="submission-title"><div className="submission-head"><div><div className="section-kicker"><span>SUBMISSION / 01</span><span>DRAFT WORKSPACE</span></div><h1 id="submission-title">准备一份<br /><em>完整的投稿。</em></h1></div><button className="text-button" type="button" onClick={() => onNavigate("#home")}>返回公开站 <span aria-hidden="true">↗</span></button></div><div className="submission-layout"><aside className="step-rail" aria-label="投稿步骤"><div className="rail-status"><span className="status-dot" /> 草稿 · 未提交</div>{formSteps.map((step, index) => <button className={`step-button ${index === activeStep ? "is-active" : ""} ${index < activeStep ? "is-done" : ""}`} type="button" key={step} onClick={() => setActiveStep(index)}><span className="step-index mono">0{index + 1}</span><span>{step}</span>{index < activeStep && <span className="step-done" aria-label="已完成">✓</span>}</button>)}<div className="rail-help"><span className="mono">TIP / 01</span><p>每一步只处理一类材料。离开页面前，系统会提示未保存内容。</p></div></aside><div className="submission-card"><div className="submission-card-head"><div><span className="mono">STEP 0{activeStep + 1} / 06</span><h2>{formSteps[activeStep]}</h2></div><span className="save-status" aria-live="polite">{saved ? "已保存于刚刚" : "尚未保存"}</span></div>{activeStep === 0 ? <><p className="step-lead">先告诉我们作品属于哪个方向，以及它如何被观看。</p><div className="field-grid"><Field name="title" label="作品名称" placeholder="请输入正式作品名" /><Field name="track" label="投稿方向" placeholder="请选择作品方向" select /><Field name="format" label="作品形式" placeholder="请选择作品形式" select /><Field name="creator" label="创作者 / 团队" placeholder="请输入创作者或团队名称" /></div></> : activeStep < 4 ? <LinkStep step={activeStep} /> : activeStep === 4 ? <DisclosureStep /> : <ReviewStep />}{activeStep < 5 && <div className="submission-actions"><button className="button button-outline" type="button" onClick={() => { setSaved(true); window.setTimeout(() => setSaved(false), 1800); }}>保存草稿</button><button className="button button-cinnabar" type="button" onClick={() => setActiveStep((step) => Math.min(step + 1, 5))}>保存并继续 <span aria-hidden="true">→</span></button></div>}{activeStep === 5 && <div className="submission-actions"><button className="button button-outline" type="button" onClick={() => setActiveStep(4)}>返回修改</button><button className="button button-cinnabar" type="button" onClick={() => setSaved(true)}>确认提交 <span aria-hidden="true">↗</span></button></div>}</div></div></section>;
-}
-
-function Field({ name, label, placeholder, select = false }: { name: string; label: string; placeholder: string; select?: boolean }) {
-  return <label className="field">{label}<span className="required">*</span>{select ? <select name={name} defaultValue=""><option value="" disabled>{placeholder}</option><option>前沿科技</option><option>传统文化</option><option>科学幻想</option></select> : <input name={name} type="text" placeholder={placeholder} autoComplete="off" />}</label>;
-}
-
-function LinkStep({ step }: { step: number }) {
-  const labels = ["主体作品链接", "制作解析链接", "导览 / 体验视频链接"];
-  return <div className="link-step"><p className="step-lead">提交公开视频平台链接，服务端会在保存后执行安全预检。</p><label className="field">{labels[step - 1]}<span className="required">*</span><input name={`link-${step}`} type="url" inputMode="url" spellCheck={false} placeholder="https://…" /></label><div className="check-card pending"><span className="check-icon">◌</span><div><strong>等待检测</strong><p>保存链接后，系统会检查平台白名单、公开可访问性、时长与分辨率。</p></div></div><p className="field-help">本站不接收、托管或下载参赛视频。请确认链接无需登录即可访问。</p></div>;
-}
-
-function DisclosureStep() {
-  return <div className="disclosure-step"><p className="step-lead">这些声明将随投稿版本保存，供资格审查时核对。</p><label className="check-row"><input name="rights-confirmed" type="checkbox" /> <span>我确认已获得作品中使用素材、声音和肖像的必要授权。</span></label><label className="check-row"><input name="ai-disclosed" type="checkbox" /> <span>我已如实说明 AI 工具在创作流程中的使用情况。</span></label><label className="check-row"><input name="version-understood" type="checkbox" /> <span>我理解提交后该版本不可直接覆盖，补充材料将产生新版本。</span></label><div className="declaration-note"><span aria-hidden="true">i</span><p>自动预检通过不代表资格审查通过，组委会仍会进行人工核验。</p></div></div>;
-}
-
-function ReviewStep() {
-  return <div className="review-step"><p className="step-lead">提交前请逐项确认材料。未通过预检的链接不能进入正式提交。</p><div className="review-list"><ReviewRow label="方向与形式" value="待填写" /><ReviewRow label="主体作品链接" value="待检测" /><ReviewRow label="制作解析链接" value="待检测" /><ReviewRow label="权利与 AI 披露" value="待确认" /></div><div className="declaration-note warning"><span aria-hidden="true">!</span><p>当前仍有材料未完成，确认提交按钮会在全部必填项通过后启用。</p></div></div>;
-}
-
-function ReviewRow({ label, value }: { label: string; value: string }) { return <div className="review-row"><span>{label}</span><span className="review-value">{value}<b aria-hidden="true">›</b></span></div>; }
 
 function Footer({ onNavigate }: { onNavigate: (href: string) => void }) { return <footer className="site-footer"><div className="footer-brand"><BrandMark /><span>CHINAVR <em>2026</em></span></div><p>AI、VR 影像单元投稿系统<br /><span>PUBLIC VIDEO LINK SUBMISSION PLATFORM</span></p><div className="footer-links"><a href="#rules" onClick={() => onNavigate("#rules")}>参赛规则</a><a href="#notices" onClick={() => onNavigate("#notices")}>通知</a><a href="#login" onClick={() => onNavigate("#login")}>登录</a></div><small>© 2026 ChinaVR · 官方赛事信息以公告为准</small></footer>; }
 

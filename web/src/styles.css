@@ -26,6 +26,12 @@
 html { scroll-behavior: smooth; }
 body { margin: 0; min-width: 320px; background: var(--paper); }
 body, button, input, select { font: inherit; }
+textarea { font: inherit; }
+.route-submit .site-header { background: var(--deep); }
+.draft-fields { min-width: 0; margin: 0; padding: 0; border: 0; }
+.field textarea { display: block; width: 100%; min-height: 120px; resize: vertical; margin-top: 8px; padding: 12px; border: 1px solid var(--border); background: var(--warm-white); color: var(--ink); }
+.field textarea:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
+.review-row > span { min-width: 0; overflow-wrap: anywhere; }
 button, a { -webkit-tap-highlight-color: transparent; }
 button, a { touch-action: manipulation; }
 a { color: inherit; text-decoration: none; }
