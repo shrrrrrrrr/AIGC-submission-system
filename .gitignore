@@ -1,0 +1,31 @@
+# 依赖和构建产物
+node_modules/
+.next/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# 本地环境和密钥
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# 本地数据、上传目录和日志
+data/
+uploads/
+backups/
+logs/
+*.log
+
+# 临时转换/预览目录
+.tmp-*/
+soffice_*/
+
+# 编辑器和系统文件
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
