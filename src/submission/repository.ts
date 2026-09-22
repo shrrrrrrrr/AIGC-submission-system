@@ -1,3 +1,4 @@
+import type { AuditEvent } from "../auth/types.js";
 import type { Submission } from "./types.js";
 
 export type SubmissionIdempotencyRecord = {
@@ -9,8 +10,12 @@ export type SubmissionIdempotencyRecord = {
   response: Submission;
 };
 
+export type SubmissionTransactionContext = {
+  audit(event: AuditEvent): Promise<void>;
+};
+
 export interface SubmissionRepository {
-  transaction<T>(operation: (repository: SubmissionRepository) => Promise<T>): Promise<T>;
+  transaction<T>(operation: (repository: SubmissionRepository, context?: SubmissionTransactionContext) => Promise<T>): Promise<T>;
   insert(submission: Submission): Promise<void>;
   findById(id: string): Promise<Submission | null>;
   findByReceiptNo(receiptNo: string): Promise<Submission | null>;
@@ -27,7 +32,7 @@ export class InMemorySubmissionRepository implements SubmissionRepository {
 
   // 本地单进程事务：串行校验并写入副本，成功后一次发布，失败时丢弃。
   // PostgreSQL 适配器必须使用同一数据库事务与行锁，不能用此锁替代。
-  async transaction<T>(operation: (repository: SubmissionRepository) => Promise<T>): Promise<T> {
+  async transaction<T>(operation: (repository: SubmissionRepository, context?: SubmissionTransactionContext) => Promise<T>): Promise<T> {
     const previous = this.pending;
     let release!: () => void;
     this.pending = new Promise<void>((resolve) => { release = resolve; });

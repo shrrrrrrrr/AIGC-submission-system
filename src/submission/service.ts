@@ -2,7 +2,7 @@ import { isIP } from "node:net";
 import { newId, newOpaqueToken } from "../auth/crypto.js";
 import type { AuditEvent, User } from "../auth/types.js";
 import { SubmissionError } from "./errors.js";
-import type { SubmissionRepository } from "./repository.js";
+import type { SubmissionRepository, SubmissionTransactionContext } from "./repository.js";
 import type { CreateDraftInput, DraftPatch, MediaLink, MediaPurpose, Submission, SubmissionDirection, SubmissionDraft, WorkForm } from "./types.js";
 import { MEDIA_PURPOSES, SUBMISSION_DIRECTIONS, WORK_FORMS } from "./types.js";
 
@@ -14,7 +14,7 @@ export class SubmissionService {
   private readonly approvedVideoHosts: Set<string>;
 
   async createDraft(user: User, input: CreateDraftInput, idempotencyKey: string, now = new Date(), context?: SubmissionRequestContext): Promise<Submission> {
-    return this.repository.transaction(async (repository) => {
+    return this.repository.transaction(async (repository, transactionContext) => {
       requireParticipant(user);
       const key = normalizeIdempotencyKey(idempotencyKey);
       validateCreateInput(input);
@@ -54,7 +54,7 @@ export class SubmissionService {
       };
       await repository.insert(submission);
       await repository.saveIdempotency({ ownerUserId: user.id, key, fingerprint, submissionId: submission.id, response: submission });
-      await this.audit("submission.create_draft", user, submission, context);
+      await this.audit("submission.create_draft", user, submission, context, undefined, transactionContext);
       return submission;
     });
   }
@@ -69,7 +69,7 @@ export class SubmissionService {
   }
 
   async patchDraft(user: User, submissionId: string, patch: DraftPatch, ifMatch: string | undefined, now = new Date(), context?: SubmissionRequestContext): Promise<Submission> {
-    return this.repository.transaction(async (repository) => {
+    return this.repository.transaction(async (repository, transactionContext) => {
       const submission = await getOwned(repository, user, submissionId);
       requireEditable(submission);
       assertRevision(submission.draftRevision, ifMatch);
@@ -90,13 +90,13 @@ export class SubmissionService {
       };
       const updated = { ...submission, draft: nextDraft, draftRevision: submission.draftRevision + 1, updatedAt: now };
       await repository.update(updated);
-      await this.audit("submission.update_draft", user, updated, context);
+      await this.audit("submission.update_draft", user, updated, context, undefined, transactionContext);
       return updated;
     });
   }
 
   async upsertMediaLink(user: User, submissionId: string, purpose: MediaPurpose, originalUrl: string, ifMatch: string | undefined, idempotencyKey: string, now = new Date(), context?: SubmissionRequestContext): Promise<{ submission: Submission; link: MediaLink }> {
-    return this.repository.transaction(async (repository) => {
+    return this.repository.transaction(async (repository, transactionContext) => {
       const submission = await getOwned(repository, user, submissionId);
       requireEditable(submission);
       if (!isMediaPurpose(purpose)) throw new SubmissionError("VALIDATION_ERROR", 422, "链接用途无效", [{ field: "purpose", reason: "INVALID_ENUM" }]);
@@ -135,16 +135,17 @@ export class SubmissionService {
       const updated = { ...submission, mediaLinks: nextLinks, draftRevision: submission.draftRevision + 1, updatedAt: now };
       await repository.update(updated);
       await repository.saveIdempotency({ ownerUserId: user.id, key, fingerprint, submissionId, mediaLinkId: link.id, response: updated });
-      await this.audit("submission.media_link_upsert", user, updated, context, { purpose });
+      await this.audit("submission.media_link_upsert", user, updated, context, { purpose }, transactionContext);
       return { submission: updated, link };
     });
   }
 
-  private async audit(action: string, user: User, submission: Submission, context?: SubmissionRequestContext, metadata?: Record<string, string>): Promise<void> {
-    if (!this.auditWriter || !context) return;
+  private async audit(action: string, user: User, submission: Submission, context?: SubmissionRequestContext, metadata?: Record<string, string>, transactionContext?: SubmissionTransactionContext): Promise<void> {
+    const writer = transactionContext?.audit ?? this.auditWriter;
+    if (!writer || !context) return;
     const event: AuditEvent = { action, outcome: "success", requestId: context.requestId, userId: user.id, metadata: { submissionId: submission.id, ...metadata }, createdAt: new Date() };
     if (context.ip !== undefined) event.ip = context.ip;
-    await this.auditWriter(event);
+    await writer(event);
   }
 
   private async nextReceiptNo(repository: SubmissionRepository): Promise<string> {

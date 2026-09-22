@@ -1,34 +1,34 @@
 import { serve } from "@hono/node-server";
-import { randomBytes } from "node:crypto";
 import { createApp } from "./app.js";
-import { MfaService } from "./auth/mfa.js";
-import { InMemoryAuthRepository } from "./auth/repository.js";
-import { AuthService } from "./auth/service.js";
-import { InMemorySubmissionRepository } from "./submission/repository.js";
-import { SubmissionService } from "./submission/service.js";
+import { createRuntimeDependencies } from "./runtime.js";
 
-if (process.env.NODE_ENV === "production") {
-  throw new Error("生产环境禁止使用内存仓储；请先配置并启用 PostgreSQL 适配器");
+async function main(): Promise<void> {
+  const runtime = createRuntimeDependencies();
+  try {
+    await runtime.ready();
+    const app = createApp({ auth: runtime.auth, mfa: runtime.mfa, submissions: runtime.submissions });
+    const port = Number(process.env.PORT || 3000);
+    if (!Number.isInteger(port) || port < 1 || port > 65_535) throw new Error("PORT 必须是 1 至 65535 的整数");
+
+    const server = serve({ fetch: app.fetch, port });
+    let shuttingDown = false;
+    const shutdown = async (signal: string): Promise<void> => {
+      if (shuttingDown) return;
+      shuttingDown = true;
+      console.info(JSON.stringify({ event: "server_shutdown", signal }));
+      server.close();
+      await runtime.close();
+    };
+    process.once("SIGTERM", () => { void shutdown("SIGTERM"); });
+    process.once("SIGINT", () => { void shutdown("SIGINT"); });
+    console.info(`ChinaVR submission server listening on http://localhost:${port} (mode=${runtime.mode})`);
+  } catch (error) {
+    await runtime.close();
+    throw error;
+  }
 }
 
-const repository = new InMemoryAuthRepository();
-const submissionRepository = new InMemorySubmissionRepository();
-const approvedVideoHosts = (process.env.APPROVED_VIDEO_PLATFORMS || "").split(",").map((host) => host.trim()).filter(Boolean);
-const submissions = new SubmissionService(submissionRepository, approvedVideoHosts, (event) => repository.insertAuditEvent(event));
-const mfaKey = process.env.MFA_ENCRYPTION_KEY ? Buffer.from(process.env.MFA_ENCRYPTION_KEY, "base64url") : randomBytes(32);
-const mfa = new MfaService(repository, mfaKey);
-const mailer = {
-  async sendEmailVerification(email: string, rawToken: string): Promise<void> {
-    void rawToken;
-    console.info(JSON.stringify({ event: "email_verification_stub", email }));
-  },
-  async sendPasswordReset(email: string, rawToken: string): Promise<void> {
-    void rawToken;
-    console.info(JSON.stringify({ event: "password_reset_stub", email }));
-  },
-};
-const app = createApp({ auth: new AuthService(repository, mailer), mfa, submissions });
-const port = Number(process.env.PORT || 3000);
-
-serve({ fetch: app.fetch, port });
-console.info(`ChinaVR auth server listening on http://localhost:${port}`);
+void main().catch((error: unknown) => {
+  console.error(JSON.stringify({ event: "server_startup_failed", message: error instanceof Error ? error.message : "unknown error" }));
+  process.exitCode = 1;
+});

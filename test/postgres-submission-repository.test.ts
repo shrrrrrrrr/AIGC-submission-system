@@ -46,3 +46,16 @@ void test("PostgreSQL submission repository runs create draft in one client tran
   assert.equal(client.statements.some((statement) => statement.includes("INSERT INTO submission_versions")), true);
   assert.equal(client.statements.some((statement) => statement.includes("INSERT INTO submission_idempotency_keys")), true);
 });
+
+void test("PostgreSQL submission audit is written on the same transaction client", async () => {
+  const client = new FakeClient();
+  const pool = { connect: async () => client } as unknown as Pool;
+  const repository = new PostgresSubmissionRepository(pool);
+  const service = new SubmissionService(repository, [], async () => {
+    throw new Error("fallback audit writer must not be used inside a PostgreSQL transaction");
+  });
+  await service.createDraft(user, { title: "PG 审计", direction: "frontier_tech", workForm: "animation" }, "pg-audit-02", new Date(), { requestId: "request-pg-audit" });
+  const auditIndex = client.statements.findIndex((statement) => statement.includes("INSERT INTO audit_logs"));
+  assert.ok(auditIndex > 0);
+  assert.equal(client.statements.at(-1), "COMMIT");
+});

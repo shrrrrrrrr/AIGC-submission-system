@@ -1,5 +1,6 @@
 import type { Pool, PoolClient, QueryResultRow } from "pg";
-import type { SubmissionRepository, SubmissionIdempotencyRecord } from "./repository.js";
+import type { SubmissionRepository, SubmissionIdempotencyRecord, SubmissionTransactionContext } from "./repository.js";
+import type { AuditEvent } from "../auth/types.js";
 import type { MediaLink, Submission, SubmissionDraft, SubmissionStatus } from "./types.js";
 import { withTransaction } from "../auth/postgres-repository.js";
 
@@ -48,8 +49,8 @@ type MediaLinkRow = QueryResultRow & {
 export class PostgresSubmissionRepository implements SubmissionRepository {
   constructor(private readonly pool: Pool, private readonly client: PoolClient | null = null) {}
 
-  async transaction<T>(operation: (repository: SubmissionRepository) => Promise<T>): Promise<T> {
-    return withTransaction(this.pool, async (client) => operation(new PostgresSubmissionRepository(this.pool, client)));
+  async transaction<T>(operation: (repository: SubmissionRepository, context?: SubmissionTransactionContext) => Promise<T>): Promise<T> {
+    return withTransaction(this.pool, async (client) => operation(new PostgresSubmissionRepository(this.pool, client), { audit: (event) => insertAuditEvent(client, event) }));
   }
 
   async insert(submission: Submission): Promise<void> {
@@ -158,4 +159,8 @@ function mapMediaLink(row: MediaLinkRow): MediaLink {
 
 function deserializeSubmission(input: Submission): Submission {
   return { ...input, createdAt: new Date(input.createdAt), updatedAt: new Date(input.updatedAt), mediaLinks: input.mediaLinks.map((link) => ({ ...link, checkedAt: link.checkedAt ? new Date(link.checkedAt) : null, expiresAt: link.expiresAt ? new Date(link.expiresAt) : null })) };
+}
+
+async function insertAuditEvent(client: PoolClient, event: AuditEvent): Promise<void> {
+  await client.query(`INSERT INTO audit_logs (action, outcome, request_id, user_id, ip, metadata, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)`, [event.action, event.outcome, event.requestId, event.userId ?? null, event.ip ?? null, event.metadata ?? null, event.createdAt]);
 }
