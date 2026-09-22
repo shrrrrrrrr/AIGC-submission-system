@@ -5,6 +5,7 @@ import { z } from "zod";
 import { AuthError } from "./auth/errors.js";
 import { newId } from "./auth/crypto.js";
 import { AuthService } from "./auth/service.js";
+import { MfaService } from "./auth/mfa.js";
 import type { User } from "./auth/types.js";
 
 const registerSchema = z.object({ email: z.string(), password: z.string() });
@@ -16,6 +17,7 @@ const CSRF_COOKIE = "chinavr-csrf";
 
 export type AppDependencies = {
   auth: AuthService;
+  mfa?: MfaService;
   mfaVerifier?: (user: User, code: string) => Promise<boolean>;
 };
 
@@ -69,11 +71,41 @@ export function createApp(dependencies: AppDependencies): Hono<RequestContext> {
         () => limiter.allow(),
         () => limiter.reset(),
         body.data.mfaCode,
-        dependencies.mfaVerifier,
+        dependencies.mfaVerifier ?? (dependencies.mfa ? (user, code) => dependencies.mfa!.verifyLogin(user, code) : undefined),
       );
       setCookie(c, SESSION_COOKIE, result.rawSessionToken, { httpOnly: true, secure: true, sameSite: "Lax", path: "/", maxAge: 28_800 });
       setCookie(c, CSRF_COOKIE, result.csrfToken, { httpOnly: false, secure: true, sameSite: "Lax", path: "/", maxAge: 28_800 });
       return c.json({ user: publicUser(result.user), expiresAt: result.expiresAt.toISOString(), requestId });
+    } catch (error) {
+      return handleError(c, error, requestId);
+    }
+  });
+
+  app.post("/api/v1/auth/mfa/enroll", async (c) => {
+    const requestId = c.get("requestId");
+    const sessionResult = await dependencies.auth.getSession(getCookie(c, SESSION_COOKIE));
+    if (!sessionResult) return c.json(errorBody("UNAUTHENTICATED", "请先登录", requestId), 401);
+    if (!csrfMatches(c, sessionResult.session.csrfToken)) return c.json(errorBody("CSRF_INVALID", "请求校验失败", requestId), 403);
+    if (!dependencies.mfa) return c.json(errorBody("MFA_UNAVAILABLE", "多因素认证暂不可用", requestId), 503);
+    try {
+      const result = await dependencies.mfa.beginEnrollment(sessionResult.user);
+      return c.json({ ...result, requestId });
+    } catch (error) {
+      return handleError(c, error, requestId);
+    }
+  });
+
+  app.post("/api/v1/auth/mfa/confirm", async (c) => {
+    const requestId = c.get("requestId");
+    const sessionResult = await dependencies.auth.getSession(getCookie(c, SESSION_COOKIE));
+    if (!sessionResult) return c.json(errorBody("UNAUTHENTICATED", "请先登录", requestId), 401);
+    if (!csrfMatches(c, sessionResult.session.csrfToken)) return c.json(errorBody("CSRF_INVALID", "请求校验失败", requestId), 403);
+    if (!dependencies.mfa) return c.json(errorBody("MFA_UNAVAILABLE", "多因素认证暂不可用", requestId), 503);
+    const body = z.object({ code: z.string().length(6) }).safeParse(await safeJson(c));
+    if (!body.success) return c.json(errorBody("INVALID_REQUEST", "请输入 6 位验证码", requestId), 422);
+    try {
+      await dependencies.mfa.confirmEnrollment(sessionResult.user, body.data.code);
+      return c.json({ message: "多因素认证已启用", requestId });
     } catch (error) {
       return handleError(c, error, requestId);
     }
@@ -107,7 +139,7 @@ export function createApp(dependencies: AppDependencies): Hono<RequestContext> {
     const requestId = c.get("requestId");
     const sessionResult = await dependencies.auth.getSession(getCookie(c, SESSION_COOKIE));
     if (!sessionResult) return c.json(errorBody("UNAUTHENTICATED", "请先登录", requestId), 401);
-    if (c.req.header("x-csrf-token") !== getCookie(c, CSRF_COOKIE) || c.req.header("x-csrf-token") !== sessionResult.session.csrfToken) {
+    if (!csrfMatches(c, sessionResult.session.csrfToken)) {
       return c.json(errorBody("CSRF_INVALID", "请求校验失败", requestId), 403);
     }
     await dependencies.auth.logout(sessionResult.session, requestId, c.req.header("x-forwarded-for"));
@@ -167,6 +199,10 @@ function publicUser(user: User) {
 
 function errorBody(code: string, message: string, requestId: string) {
   return { code, message, requestId };
+}
+
+function csrfMatches(c: Context<RequestContext>, expected: string): boolean {
+  return c.req.header("x-csrf-token") === getCookie(c, CSRF_COOKIE) && c.req.header("x-csrf-token") === expected;
 }
 
 function handleError(c: Context<RequestContext>, error: unknown, requestId: string) {

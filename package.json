@@ -11,13 +11,14 @@
     "dev": "tsx src/server.ts",
     "start": "node dist/src/server.js",
     "build": "tsc -p tsconfig.json",
-    "test": "npm run build && node dist/test/auth.test.js && node dist/test/postgres-repository.test.js",
+    "test": "npm run build && node dist/test/auth.test.js && node dist/test/mfa.test.js && node dist/test/postgres-repository.test.js",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@node-rs/argon2": "2.2.1",
     "@hono/node-server": "2.1.1",
+    "@node-rs/argon2": "2.2.1",
     "hono": "4.13.7",
+    "otpauth": "^9.5.2",
     "pg": "8.23.0",
     "zod": "4.3.6"
   },

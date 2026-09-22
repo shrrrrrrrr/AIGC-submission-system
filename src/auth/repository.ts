@@ -14,6 +14,10 @@ export interface AuthRepository {
   findSessionByTokenHash(tokenHash: string): Promise<Session | null>;
   revokeSession(session: Session, revokedAt: Date): Promise<void>;
   revokeAllSessions(userId: string, revokedAt: Date): Promise<void>;
+  saveMfaPendingSecret(userId: string, ciphertext: string): Promise<void>;
+  getMfaCredential(userId: string): Promise<{ enabled: boolean; secretCiphertext: string | null; pendingSecretCiphertext: string | null; lastUsedCounter: number | null } | null>;
+  activateMfa(userId: string, ciphertext: string, usedCounter: number): Promise<void>;
+  consumeMfaCounter(userId: string, counter: number): Promise<boolean>;
   insertAuditEvent(event: AuditEvent): Promise<void>;
 }
 
@@ -96,6 +100,28 @@ export class InMemoryAuthRepository implements AuthRepository {
         this.sessions.set(session.id, { ...session, revokedAt });
       }
     }
+  }
+
+  async saveMfaPendingSecret(userId: string, ciphertext: string): Promise<void> {
+    const user = this.users.get(userId);
+    if (user) this.users.set(userId, { ...user, mfaPendingSecretCiphertext: ciphertext });
+  }
+
+  async getMfaCredential(userId: string) {
+    const user = this.users.get(userId);
+    return user ? { enabled: user.mfaEnabled, secretCiphertext: user.mfaSecretCiphertext, pendingSecretCiphertext: user.mfaPendingSecretCiphertext, lastUsedCounter: user.mfaLastUsedCounter } : null;
+  }
+
+  async activateMfa(userId: string, ciphertext: string, usedCounter: number): Promise<void> {
+    const user = this.users.get(userId);
+    if (user) this.users.set(userId, { ...user, mfaEnabled: true, mfaSecretCiphertext: ciphertext, mfaPendingSecretCiphertext: null, mfaLastUsedCounter: usedCounter });
+  }
+
+  async consumeMfaCounter(userId: string, counter: number): Promise<boolean> {
+    const user = this.users.get(userId);
+    if (!user || !user.mfaEnabled || user.mfaLastUsedCounter !== null && counter <= user.mfaLastUsedCounter) return false;
+    this.users.set(userId, { ...user, mfaLastUsedCounter: counter });
+    return true;
   }
 
   async insertAuditEvent(event: AuditEvent): Promise<void> {

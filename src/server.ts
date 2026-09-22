@@ -1,5 +1,7 @@
 import { serve } from "@hono/node-server";
+import { randomBytes } from "node:crypto";
 import { createApp } from "./app.js";
+import { MfaService } from "./auth/mfa.js";
 import { InMemoryAuthRepository } from "./auth/repository.js";
 import { AuthService } from "./auth/service.js";
 
@@ -8,6 +10,8 @@ if (process.env.NODE_ENV === "production") {
 }
 
 const repository = new InMemoryAuthRepository();
+const mfaKey = process.env.MFA_ENCRYPTION_KEY ? Buffer.from(process.env.MFA_ENCRYPTION_KEY, "base64url") : randomBytes(32);
+const mfa = new MfaService(repository, mfaKey);
 const mailer = {
   async sendEmailVerification(email: string, rawToken: string): Promise<void> {
     void rawToken;
@@ -18,7 +22,7 @@ const mailer = {
     console.info(JSON.stringify({ event: "password_reset_stub", email }));
   },
 };
-const app = createApp({ auth: new AuthService(repository, mailer) });
+const app = createApp({ auth: new AuthService(repository, mailer), mfa });
 const port = Number(process.env.PORT || 3000);
 
 serve({ fetch: app.fetch, port });

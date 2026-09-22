@@ -8,6 +8,9 @@ type UserRow = {
   password_hash: string;
   email_verified_at: Date | null;
   mfa_enabled: boolean;
+  mfa_secret_ciphertext: Buffer | null;
+  mfa_pending_secret_ciphertext: Buffer | null;
+  mfa_last_used_counter: string | null;
   created_at: Date;
   roles: Role[] | null;
 };
@@ -108,13 +111,32 @@ export class PostgresAuthRepository implements AuthRepository {
     await this.pool.query(`UPDATE sessions SET revoked_at = $2 WHERE user_id = $1 AND revoked_at IS NULL`, [userId, revokedAt]);
   }
 
+  async saveMfaPendingSecret(userId: string, ciphertext: string): Promise<void> {
+    await this.pool.query(`UPDATE users SET mfa_pending_secret_ciphertext = $2 WHERE id = $1`, [userId, Buffer.from(ciphertext, "utf8")]);
+  }
+
+  async getMfaCredential(userId: string) {
+    const result = await this.pool.query<Pick<UserRow, "mfa_enabled" | "mfa_secret_ciphertext" | "mfa_pending_secret_ciphertext" | "mfa_last_used_counter">>(`SELECT mfa_enabled, mfa_secret_ciphertext, mfa_pending_secret_ciphertext, mfa_last_used_counter FROM users WHERE id = $1`, [userId]);
+    const row = result.rows[0];
+    return row ? { enabled: row.mfa_enabled, secretCiphertext: row.mfa_secret_ciphertext?.toString("utf8") ?? null, pendingSecretCiphertext: row.mfa_pending_secret_ciphertext?.toString("utf8") ?? null, lastUsedCounter: row.mfa_last_used_counter === null ? null : Number(row.mfa_last_used_counter) } : null;
+  }
+
+  async activateMfa(userId: string, ciphertext: string, usedCounter: number): Promise<void> {
+    await this.pool.query(`UPDATE users SET mfa_enabled = true, mfa_secret_ciphertext = $2, mfa_pending_secret_ciphertext = NULL, mfa_last_used_counter = $3 WHERE id = $1`, [userId, Buffer.from(ciphertext, "utf8"), usedCounter]);
+  }
+
+  async consumeMfaCounter(userId: string, counter: number): Promise<boolean> {
+    const result = await this.pool.query(`UPDATE users SET mfa_last_used_counter = $2 WHERE id = $1 AND mfa_enabled = true AND (mfa_last_used_counter IS NULL OR mfa_last_used_counter < $2)`, [userId, counter]);
+    return result.rowCount === 1;
+  }
+
   async insertAuditEvent(event: AuditEvent): Promise<void> {
     await this.pool.query(`INSERT INTO audit_logs (action, outcome, request_id, user_id, ip, metadata, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)`, [event.action, event.outcome, event.requestId, event.userId ?? null, event.ip ?? null, event.metadata ?? null, event.createdAt]);
   }
 }
 
 function mapUser(row: UserRow): User {
-  return { id: row.id, email: row.email, passwordHash: row.password_hash, emailVerifiedAt: row.email_verified_at, roles: row.roles ?? [], mfaEnabled: row.mfa_enabled, createdAt: row.created_at };
+  return { id: row.id, email: row.email, passwordHash: row.password_hash, emailVerifiedAt: row.email_verified_at, roles: row.roles ?? [], mfaEnabled: row.mfa_enabled, mfaSecretCiphertext: row.mfa_secret_ciphertext?.toString("utf8") ?? null, mfaPendingSecretCiphertext: row.mfa_pending_secret_ciphertext?.toString("utf8") ?? null, mfaLastUsedCounter: row.mfa_last_used_counter === null ? null : Number(row.mfa_last_used_counter), createdAt: row.created_at };
 }
 
 export async function withTransaction<T>(pool: Pool, fn: (client: PoolClient) => Promise<T>): Promise<T> {

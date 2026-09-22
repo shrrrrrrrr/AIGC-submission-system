@@ -45,6 +45,9 @@ export class AuthService {
       emailVerifiedAt: null,
       roles: ["participant"],
       mfaEnabled: false,
+      mfaSecretCiphertext: null,
+      mfaPendingSecretCiphertext: null,
+      mfaLastUsedCounter: null,
       createdAt: now,
     };
     await this.repository.insertUser(user);

@@ -14,6 +14,9 @@ export type User = {
   emailVerifiedAt: Date | null;
   roles: Role[];
   mfaEnabled: boolean;
+  mfaSecretCiphertext: string | null;
+  mfaPendingSecretCiphertext: string | null;
+  mfaLastUsedCounter: number | null;
   createdAt: Date;
 };
 
