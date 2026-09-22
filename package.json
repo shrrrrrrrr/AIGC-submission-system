@@ -15,7 +15,7 @@
     "web:build": "vite build --config web/vite.config.ts",
     "web:typecheck": "tsc --noEmit -p web/tsconfig.json",
     "build:all": "npm run build && npm run web:build",
-    "test": "npm run build && node dist/test/auth.test.js && node dist/test/mfa.test.js && node dist/test/submission.test.js && node dist/test/postgres-repository.test.js",
+    "test": "npm run build && node dist/test/auth.test.js && node dist/test/mfa.test.js && node dist/test/submission.test.js && node dist/test/postgres-submission-repository.test.js && node dist/test/postgres-repository.test.js",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
