@@ -1,0 +1,28 @@
+{
+  "name": "chinavr-submission-system",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ChinaVR 2026 AI、VR影像单元投稿系统",
+  "type": "module",
+  "engines": {
+    "node": ">=26.0.0"
+  },
+  "scripts": {
+    "dev": "tsx src/server.ts",
+    "start": "node dist/src/server.js",
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node dist/test/auth.test.js",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@node-rs/argon2": "2.2.1",
+    "@hono/node-server": "2.1.1",
+    "hono": "4.13.5",
+    "zod": "4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "tsx": "4.21.0",
+    "typescript": "5.9.3"
+  }
+}
