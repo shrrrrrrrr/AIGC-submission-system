@@ -9,8 +9,12 @@
   },
   "scripts": {
     "dev": "tsx src/server.ts",
+    "web:dev": "vite --config web/vite.config.ts",
     "start": "node dist/src/server.js",
     "build": "tsc -p tsconfig.json",
+    "web:build": "vite build --config web/vite.config.ts",
+    "web:typecheck": "tsc --noEmit -p web/tsconfig.json",
+    "build:all": "npm run build && npm run web:build",
     "test": "npm run build && node dist/test/auth.test.js && node dist/test/mfa.test.js && node dist/test/postgres-repository.test.js",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
@@ -20,12 +24,18 @@
     "hono": "4.13.7",
     "otpauth": "^9.5.2",
     "pg": "8.23.0",
+    "react": "19.1.1",
+    "react-dom": "19.1.1",
     "zod": "4.3.6"
   },
   "devDependencies": {
     "@types/node": "24.10.1",
     "@types/pg": "8.15.5",
-    "tsx": "4.21.0",
-    "typescript": "5.9.3"
+    "@types/react": "19.1.13",
+    "@types/react-dom": "19.1.9",
+    "@vitejs/plugin-react": "5.0.4",
+    "tsx": "^4.23.15",
+    "typescript": "5.9.3",
+    "vite": "^7.3.6"
   }
 }
