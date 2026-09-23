@@ -1,4 +1,3 @@
-import { isIP } from "node:net";
 import { newId, newOpaqueToken } from "../auth/crypto.js";
 import type { AuditEvent, User } from "../auth/types.js";
 import { SubmissionError } from "./errors.js";
@@ -6,6 +5,8 @@ import type { SubmissionRepository, SubmissionTransactionContext } from "./repos
 import type { CreateDraftInput, DraftPatch, MediaLink, MediaPurpose, Submission, SubmissionDirection, SubmissionDraft, SubmissionStatus, WorkForm } from "./types.js";
 import { MEDIA_PURPOSES, SUBMISSION_DIRECTIONS, SUBMISSION_STATUSES, WORK_FORMS } from "./types.js";
 import { inspectVideoLink } from "./precheck.js";
+import { getSubmissionIssues } from "./validation.js";
+import { normalizeVideoShareInput, VideoUrlError } from "./video-url.js";
 const ALLOWED_STATUS_TRANSITIONS: Record<SubmissionStatus, readonly SubmissionStatus[]> = {
   draft: [],
   checking_links: [],
@@ -116,7 +117,15 @@ export class SubmissionService {
       requireEditable(submission);
       if (!isMediaPurpose(purpose)) throw new SubmissionError("VALIDATION_ERROR", 422, "链接用途无效", [{ field: "purpose", reason: "INVALID_ENUM" }]);
       const key = normalizeIdempotencyKey(idempotencyKey);
-      const trimmedUrl = validateAndNormalizeVideoUrl(originalUrl, this.approvedVideoHosts);
+      let trimmedUrl: string;
+      try {
+        trimmedUrl = normalizeVideoShareInput(originalUrl, [...this.approvedVideoHosts]);
+      } catch (error) {
+        if (error instanceof VideoUrlError) {
+          throw new SubmissionError(error.code, 422, error.message, [{ field: "url", reason: error.code, message: error.message }]);
+        }
+        throw error;
+      }
       const fingerprint = JSON.stringify({ operation: "mediaLink", submissionId, purpose, url: trimmedUrl });
       const existing = await repository.findIdempotency(user.id, key);
       if (existing) {
@@ -215,8 +224,15 @@ export class SubmissionService {
       const submission = await getOwned(repository, user, submissionId);
       requireEditable(submission);
       assertRevision(submission.draftRevision, ifMatch);
-      if (!submission.mediaLinks.some((link) => link.purpose === "mainWork")) throw new SubmissionError("SUBMISSION_INCOMPLETE", 422, "请先保存主体作品链接");
-      if (!submission.draft.rightsConfirmed || !submission.draft.aiLabelConfirmed) throw new SubmissionError("SUBMISSION_INCOMPLETE", 422, "请完成版权与 AI 内容声明");
+      const links = Object.fromEntries(submission.mediaLinks.map((link) => [link.purpose, link.originalUrl])) as Partial<Record<MediaPurpose, string>>;
+      const issues = getSubmissionIssues(submission.draft, links);
+      if (issues.length > 0) {
+        throw new SubmissionError("SUBMISSION_INCOMPLETE", 422, "请补充投稿必填信息", issues.map((issue) => ({
+          field: issue.field,
+          reason: issue.field === "guideVideo" ? "CONDITIONAL_REQUIRED" : "REQUIRED",
+          message: issue.message,
+        })));
+      }
       const updated = { ...submission, currentStatus: "submitted" as const, draftRevision: submission.draftRevision + 1, updatedAt: now };
       await repository.update(updated);
       await this.audit("submission.submit", user, updated, context, undefined, transactionContext);
@@ -297,16 +313,6 @@ function validateDraftPatch(patch: DraftPatch): void {
   if (patch.workForm !== undefined && !isWorkForm(patch.workForm)) throw new SubmissionError("VALIDATION_ERROR", 422, "作品形式无效", [{ field: "workForm", reason: "INVALID_ENUM" }]);
   if (patch.aiContributionPercent !== undefined && patch.aiContributionPercent !== null && (!Number.isInteger(patch.aiContributionPercent) || patch.aiContributionPercent < 80 || patch.aiContributionPercent > 100)) throw new SubmissionError("VALIDATION_ERROR", 422, "AI 占比需为 80—100 的整数", [{ field: "aiContributionPercent", reason: "PERCENT_OUT_OF_RANGE" }]);
   if (patch.aiTools !== undefined && (patch.aiTools.length > 30 || patch.aiTools.some((tool) => tool.trim().length > 100))) throw new SubmissionError("VALIDATION_ERROR", 422, "AI 工具清单格式无效", [{ field: "aiTools", reason: "TOOL_LIST_INVALID" }]);
-}
-
-function validateAndNormalizeVideoUrl(input: string, approvedHosts: Set<string>): string {
-  if (typeof input !== "string" || input.length > 2_048) throw new SubmissionError("VALIDATION_ERROR", 422, "视频链接格式无效", [{ field: "url", reason: "URL_INVALID" }]);
-  let url: URL;
-  try { url = new URL(input.trim()); } catch { throw new SubmissionError("VALIDATION_ERROR", 422, "视频链接格式无效", [{ field: "url", reason: "URL_INVALID" }]); }
-  const hostname = url.hostname.toLowerCase();
-  if (url.protocol !== "https:" || url.username || url.password || (url.port && url.port !== "443") || isIP(hostname.replace(/^\[|\]$/g, "")) !== 0 || hostname === "localhost" || hostname.endsWith(".local") || hostname.endsWith(".internal")) throw new SubmissionError("UNSAFE_URL", 422, "视频链接必须使用 HTTPS 且指向允许的平台", [{ field: "url", reason: "UNSAFE_URL" }]);
-  if (!approvedHosts.has(hostname)) throw new SubmissionError("UNSUPPORTED_PLATFORM", 422, "该视频平台尚未纳入赛事白名单", [{ field: "url", reason: "UNSUPPORTED_PLATFORM" }]);
-  return url.toString();
 }
 
 function isDirection(value: string): value is SubmissionDirection { return (SUBMISSION_DIRECTIONS as readonly string[]).includes(value); }

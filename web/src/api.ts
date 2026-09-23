@@ -1,5 +1,7 @@
+export type ApiErrorDetail = { field: string; reason: string; message?: string };
+
 export class ApiError extends Error {
-  constructor(public readonly status: number, public readonly code: string, message: string) { super(message); }
+  constructor(public readonly status: number, public readonly code: string, message: string, public readonly details: ApiErrorDetail[] = []) { super(message); }
 }
 
 const API_PREFIX = "/api/v1";
@@ -16,7 +18,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<{ da
   }
   const response = await fetch(`${API_PREFIX}${path}`, { ...init, headers, credentials: "same-origin", cache: "no-store", signal: init.signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
   const data = response.status === 204 ? {} : await response.json();
-  if (!response.ok) throw new ApiError(response.status, data.code ?? "REQUEST_FAILED", data.message ?? "请求失败，请重试");
+  if (!response.ok) throw new ApiError(response.status, data.code ?? "REQUEST_FAILED", data.message ?? "请求失败，请重试", Array.isArray(data.details) ? data.details : []);
   return { data: data as T, etag: response.headers.get("ETag") };
 }
 

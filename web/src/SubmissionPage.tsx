@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
+import { getSubmissionIssues, requiresGuideVideo } from "../../src/submission/validation";
 import type { MediaPurpose, Submission, SubmissionDraft } from "../../src/submission/types";
 import { ApiError, api } from "./api";
 
@@ -15,9 +16,24 @@ const emptyDraft: SubmissionDraft = {
   aiContributionPercent: null, aiTools: [], aiWorkflow: "", humanContribution: "", rightsConfirmed: false, aiLabelConfirmed: false, templateConfirmed: null,
 };
 const emptyLinks: LinkInputs = { mainWork: "", makingOf: "", guideVideo: "", experience: "" };
-const steps = ["方向与形式", "主体作品链接", "制作解析链接", "导览与体验（选填）", "权利与 AI 披露", "确认提交"];
+const steps = ["方向与形式", "主体作品链接", "制作解析链接", "导览与体验", "权利与 AI 披露", "确认提交"];
 const directions = { frontier_tech: "前沿科技", traditional_culture: "传统文化", science_fiction: "科学幻想" };
 const forms = { narrative: "叙事影像", documentary: "纪录影像", sci_fi: "科幻影像", experimental: "实验影像", animation: "动画", realtime: "实时作品", scientific_visualization: "科学可视化", three_d: "三维影像", vr: "VR", mr: "MR", other: "其他" };
+const VIDEO_LINK_HELP = "必须粘贴公开网页 HTTPS 链接，例如抖音、B 站、小红书或视频号的网页分享地址；可带一段分享文案，但只能包含一个链接。不支持 douyin://、xhsdiscover://、分享口令或私密链接。";
+const FIELD_STEPS: Record<string, number> = {
+  title: 0, synopsis: 0, creativeStatement: 0, mainWork: 1, makingOf: 2, guideVideo: 3,
+  aiContributionPercent: 4, aiTools: 4, aiWorkflow: 4, humanContribution: 4,
+  rightsConfirmed: 4, aiLabelConfirmed: 4,
+};
+function formatApiFailure(failure: unknown, fallback: string): { message: string; step?: number } {
+  if (!(failure instanceof ApiError)) return { message: fallback };
+  const details = failure.details.map((detail) => detail.message || detail.field);
+  const firstField = failure.details[0]?.field;
+  return {
+    message: details.length ? failure.message + "：" + details.join("；") : failure.message,
+    step: firstField === undefined ? undefined : FIELD_STEPS[firstField],
+  };
+}
 
 export function SubmissionPage() {
   const [loading, setLoading] = useState(true);
@@ -128,8 +144,9 @@ export function SubmissionPage() {
       setLinks({ ...emptyLinks, ...Object.fromEntries(current.mediaLinks.map((link) => [link.purpose, link.originalUrl])) });
       setDirty(false);
     } catch (failure) {
-      const message = failure instanceof Error ? failure.message : "保存失败，请重试";
-      setError(`${message}。尚未保存的输入仍保留在本页。`);
+      const formatted = formatApiFailure(failure, "保存失败，请重试");
+      if (formatted.step !== undefined) setStep(formatted.step);
+      setError(formatted.message + "。尚未保存的输入仍保留在本页。");
       setDirty(true);
       requestAnimationFrame(() => errorRef.current?.focus());
     } finally {
@@ -144,17 +161,25 @@ export function SubmissionPage() {
       setError("请先保存当前修改，再确认提交。");
       return;
     }
+    const issues = getSubmissionIssues(draft, links);
+    if (issues.length > 0) {
+      setStep(FIELD_STEPS[issues[0]!.field] ?? Math.max(0, issues[0]!.step - 1));
+      setError("请先补充以下必填项：" + issues.map((issue) => issue.message).join("；"));
+      requestAnimationFrame(() => errorRef.current?.focus());
+      return;
+    }
     busyRef.current = true;
     setBusy(true);
     setError("");
     try {
-      const { data } = await api<SavedResponse>(`/submissions/${server.id}/submit`, { method: "POST", headers: { "If-Match": `"${server.draftRevision}"` } });
-      setServer(data.submission);
+      const { data } = await api("/submissions/" + server.id + "/submit", { method: "POST", headers: { "If-Match": "\"" + server.draftRevision + "\"" } });
+      setServer((data as SavedResponse).submission);
       setReadOnly(true);
       setDirty(false);
     } catch (failure) {
-      const message = failure instanceof Error ? failure.message : "提交失败，请重试";
-      setError(`${message}。当前草稿仍保留。`);
+      const formatted = formatApiFailure(failure, "提交失败，请重试");
+      if (formatted.step !== undefined) setStep(formatted.step);
+      setError(formatted.message + "。当前草稿仍保留。");
       requestAnimationFrame(() => errorRef.current?.focus());
     } finally {
       busyRef.current = false;
@@ -187,35 +212,38 @@ export function SubmissionPage() {
   const time = server ? new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(new Date(server.updatedAt)) : null;
   const status = busy ? "正在处理…" : readOnly ? "已提交 · " + (server?.receiptNo ?? "") : dirty ? "有未保存的修改" : time ? "已保存于 " + time + " · 未正式提交" : "尚未创建草稿";
   const linkField = (purpose: MediaPurpose, label: string) => {
+    const required = purpose === "mainWork" || purpose === "makingOf" || (purpose === "guideVideo" && requiresGuideVideo(draft.workForm));
     const saved = server?.mediaLinks.find((link) => link.purpose === purpose && link.originalUrl === links[purpose]);
     const precheckText = !saved ? "未保存此链接" : saved.precheckStatus === "passed" ? "预检通过" : saved.precheckStatus === "failed" ? "预检未通过 · " + (saved.failureCode ?? "请查看详情") : "等待预检";
-    return <label className="field" key={purpose}>{label}
-      <input name={purpose} type="url" inputMode="url" spellCheck={false} autoComplete="off" maxLength={2048} placeholder="https://…" value={links[purpose]} onChange={(event) => { setLinks({ ...links, [purpose]: event.target.value }); setDirty(true); }} />
+    const missing = required && !links[purpose].trim();
+    return <label className="field" key={purpose}>{label}{required && <span className="required"> *</span>}
+      <input name={purpose} type="text" inputMode="url" spellCheck={false} autoComplete="off" maxLength={4096} placeholder="https://www.douyin.com/... 或 https://www.bilibili.com/..." value={links[purpose]} aria-required={required} aria-invalid={missing} onChange={(event) => { setLinks({ ...links, [purpose]: event.target.value }); setDirty(true); }} />
+      <span className="field-help link-format-help">{required ? "必填。 " : "选填。 "}{VIDEO_LINK_HELP}</span>
       <span className="field-help">{precheckText}</span>
       {saved && !readOnly && <button className="text-button" type="button" disabled={busy} onClick={() => void runPrecheck(purpose)}>开始预检</button>}
     </label>;
   }
 
   return <section className="submission-page section-pad" aria-labelledby="submission-title">
-    <div className="submission-head"><div><div className="section-kicker"><span>SUBMISSION</span><span>作品草稿</span></div><h1 id="submission-title">准备一份<br /><em>完整的投稿。</em></h1></div><a className="text-link dark-link" href="#home">返回公开站 ↗</a></div>
-    {loading ? <p role="status">正在读取账户与草稿…</p> : unauthenticated ? <div className="submission-card"><h2>登录后开始投稿</h2><p>草稿保存在你的账号下，可以在下次登录后继续填写。</p><a className="button button-cinnabar" href="#login">登录账号 ↗</a></div> : <div className="submission-layout">
+    <div className="submission-head"><div><div className="section-kicker"><span>SUBMISSION</span><span>作品草稿</span></div><h1 id="submission-title">倾怀以待<br /><em>静候华章</em></h1></div><a className="text-link dark-link" href="#home">返回公开站 ↗</a></div>
+    {loading ? <p role="status">正在读取账户与草稿…</p> : unauthenticated ? <div className="submission-card"><h2>登录后开始投稿</h2><p>草稿保存在你的账号下，可以在下次登录后继续填写</p><a className="button button-cinnabar" href="#login">登录账号 ↗</a></div> : <div className="submission-layout">
       <aside className="step-rail" aria-label="投稿步骤"><div className="rail-status">✎ 草稿 · 未提交</div>{steps.map((label, index) => <button className={`step-button ${step === index ? "is-active" : ""}`} aria-current={step === index ? "step" : undefined} disabled={busy} onClick={() => setStep(index)} key={label}><span className="mono">0{index + 1}</span>{label}</button>)}</aside>
       <form className="submission-card" onSubmit={save}>
         <div className="submission-card-head"><div><span className="mono">STEP 0{step + 1} / 06</span><h2>{steps[step]}</h2></div><span className="save-status" role="status">{status}</span></div>
         {server && <p className="field-help">草稿编号：{server.receiptNo} · 当前为第 {server.currentVersionNo} 版</p>}
         {error && <div className="form-notice error" role="alert" tabIndex={-1} ref={errorRef}>{error}<br /><button className="text-button" type="button" disabled={busy} onClick={() => { if (!dirty || window.confirm("重新读取会替换本页未保存的内容，是否读取服务器草稿？")) setReload((value) => value + 1); }}>重新读取服务器草稿</button></div>}
         <fieldset disabled={busy || readOnly} className="draft-fields">
-          {step === 0 && <><p className="step-lead">先确定作品方向与形式。简介和说明可先保存未完成内容。</p><div className="field-grid">
-            <label className="field">作品名称<input name="title" autoComplete="off" minLength={2} maxLength={100} value={draft.title} onChange={(e) => edit("title", e.target.value)} required /></label>
+          {step === 0 && <><p className="step-lead">请确定作品方向与形式。简介和说明可先保存未完成内容</p><div className="field-grid">
+            <label className="field">作品名称<span className="required"> *</span><input name="title" autoComplete="off" minLength={2} maxLength={100} value={draft.title} onChange={(e) => edit("title", e.target.value)} required /></label>
             <label className="field">投稿方向<select name="direction" value={draft.direction} onChange={(e) => edit("direction", e.target.value as SubmissionDraft["direction"])}>{Object.entries(directions).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
             <label className="field">作品形式<select name="workForm" value={draft.workForm} onChange={(e) => edit("workForm", e.target.value as SubmissionDraft["workForm"])}>{Object.entries(forms).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-          </div><label className="field">作品简介<textarea name="synopsis" maxLength={2000} value={draft.synopsis} onChange={(e) => edit("synopsis", e.target.value)} /></label><label className="field">创作说明<textarea name="creativeStatement" maxLength={3000} value={draft.creativeStatement} onChange={(e) => edit("creativeStatement", e.target.value)} /></label></>}
+          </div><label className="field">作品简介<span className="required"> *</span><textarea name="synopsis" maxLength={2000} value={draft.synopsis} onChange={(e) => edit("synopsis", e.target.value)} /></label><label className="field">创作说明<span className="required"> *</span><textarea name="creativeStatement" maxLength={3000} value={draft.creativeStatement} onChange={(e) => edit("creativeStatement", e.target.value)} /></label></>}
           {step === 1 && linkField("mainWork", "主体作品链接")}
           {step === 2 && linkField("makingOf", "制作解析链接")}
-          {step === 3 && <>{linkField("guideVideo", "导览视频链接（VR / MR / 实时作品必填）")}{linkField("experience", "体验链接（选填）")}</>}
+          {step === 3 && <>{linkField("guideVideo", "导览视频链接" + (requiresGuideVideo(draft.workForm) ? "（当前作品形式必填）" : "（选填）"))}{linkField("experience", "体验链接（选填）")}</>}
           {step >= 1 && step <= 3 && <div className="declaration-note"><p>保存链接后可发起预检；预检结果只代表当前链接状态，不能替代组委会资格审查。</p></div>}
-          {step === 4 && <><label className="field">AI 贡献比例（%）<input name="aiContributionPercent" type="number" min={80} max={100} step={1} value={draft.aiContributionPercent ?? ""} onChange={(e) => edit("aiContributionPercent", e.target.value ? Number(e.target.value) : null)} /></label><label className="field">AI 工具（用逗号分隔）<input name="aiTools" maxLength={3000} value={draft.aiTools.join(",")} onChange={(e) => edit("aiTools", e.target.value.split(","))} /></label><label className="field">AI 创作流程<textarea name="aiWorkflow" maxLength={3000} value={draft.aiWorkflow} onChange={(e) => edit("aiWorkflow", e.target.value)} /></label><label className="field">人工贡献说明<textarea name="humanContribution" maxLength={3000} value={draft.humanContribution} onChange={(e) => edit("humanContribution", e.target.value)} /></label><label className="check-row"><input name="rightsConfirmed" type="checkbox" checked={draft.rightsConfirmed} onChange={(e) => edit("rightsConfirmed", e.target.checked)} />我确认已取得作品素材、声音和肖像的必要授权。</label><label className="check-row"><input name="aiLabelConfirmed" type="checkbox" checked={draft.aiLabelConfirmed} onChange={(e) => edit("aiLabelConfirmed", e.target.checked)} />我确认已按要求标识 AI 生成内容。</label></>}
-          {step === 5 && <><div className="review-list"><div className="review-row"><span>作品名称</span><span>{draft.title || "待填写"}</span></div><div className="review-row"><span>投稿方向</span><span>{directions[draft.direction]}</span></div>{(["mainWork", "makingOf", "guideVideo"] as const).map((purpose) => <div className="review-row" key={purpose}><span>{{ mainWork: "主体作品", makingOf: "制作解析", guideVideo: "导览视频" }[purpose]}</span><span>{links[purpose] ? "已保存，待检测" : "待填写 / 依作品形式要求"}</span></div>)}</div>{readOnly ? <p className="form-notice success">投稿已提交，回执号：{server?.receiptNo}。预检与资格审查功能将在后续迭代接入。</p> : <><p id="submit-help" className="form-notice">提交前请确认主体作品链接、版权声明和 AI 内容声明已完成。预检与资格审查功能将在后续迭代接入。</p><button className="button button-cinnabar" disabled={!server || busy} aria-describedby="submit-help" onClick={() => void submitFinal()} type="button">{busy ? "正在提交…" : "确认提交"}</button></>}</>}
+          {step === 4 && <><label className="field">AI 贡献比例（%）<span className="required"> *</span><input name="aiContributionPercent" type="number" min={80} max={100} step={1} value={draft.aiContributionPercent ?? ""} onChange={(e) => edit("aiContributionPercent", e.target.value ? Number(e.target.value) : null)} /></label><label className="field">AI 工具（用逗号分隔）<span className="required"> *</span><input name="aiTools" maxLength={3000} value={draft.aiTools.join(",")} onChange={(e) => edit("aiTools", e.target.value.split(","))} /></label><label className="field">AI 创作流程<span className="required"> *</span><textarea name="aiWorkflow" maxLength={3000} value={draft.aiWorkflow} onChange={(e) => edit("aiWorkflow", e.target.value)} /></label><label className="field">人工贡献说明<span className="required"> *</span><textarea name="humanContribution" maxLength={3000} value={draft.humanContribution} onChange={(e) => edit("humanContribution", e.target.value)} /></label><label className="check-row"><input name="rightsConfirmed" type="checkbox" checked={draft.rightsConfirmed} onChange={(e) => edit("rightsConfirmed", e.target.checked)} /><span className="required" aria-hidden="true"> *</span>我确认已取得作品素材、声音和肖像的必要授权。</label><label className="check-row"><input name="aiLabelConfirmed" type="checkbox" checked={draft.aiLabelConfirmed} onChange={(e) => edit("aiLabelConfirmed", e.target.checked)} /><span className="required" aria-hidden="true"> *</span>我确认已按要求标识 AI 生成内容。</label></>}
+          {step === 5 && <><div className="review-list"><div className="review-row"><span>作品名称</span><span>{draft.title || "待填写"}</span></div><div className="review-row"><span>投稿方向</span><span>{directions[draft.direction]}</span></div>{(["mainWork", "makingOf", "guideVideo", "experience"] as const).map((purpose) => <div className="review-row" key={purpose}><span>{{ mainWork: "主体作品", makingOf: "制作解析", guideVideo: "导览视频", experience: "体验链接" }[purpose]}</span><span>{links[purpose] ? "已保存，待检测" : "待填写 / 依作品形式要求"}</span></div>)}</div>{readOnly ? <p className="form-notice success">投稿已提交，回执号：{server?.receiptNo}。预检与资格审查功能将在后续迭代接入。</p> : <><p id="submit-help" className="form-notice">提交前请完成所有标有“必填”的字段和链接；体验链接为选填。链接格式会先进行安全校验，公开性、时长和分辨率由后续预检与资格审查确认。</p><button className="button button-cinnabar" disabled={!server || busy} aria-describedby="submit-help" onClick={() => void submitFinal()} type="button">{busy ? "正在提交…" : "确认提交"}</button></>}</>}
         </fieldset>
         {!readOnly && <div className="submission-actions"><button className="button button-cinnabar" type="submit" disabled={busy}>{busy ? "正在保存…" : "保存草稿"}</button>{step < 5 && <button className="button button-outline" type="button" disabled={busy} onClick={() => setStep(step + 1)}>下一步：{steps[step + 1]} →</button>}</div>}
       </form>

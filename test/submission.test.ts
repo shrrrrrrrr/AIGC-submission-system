@@ -3,7 +3,9 @@ import { createApp } from "../src/app.js";
 import { InMemoryAuthRepository } from "../src/auth/repository.js";
 import { AuthService } from "../src/auth/service.js";
 import type { User } from "../src/auth/types.js";
-import type { MediaLink } from "../src/submission/types.js";
+import type { MediaLink, SubmissionDraft } from "../src/submission/types.js";
+import { getSubmissionIssues, requiresGuideVideo } from "../src/submission/validation.js";
+import { normalizeVideoShareInput, VideoUrlError } from "../src/submission/video-url.js";
 import { SubmissionError } from "../src/submission/errors.js";
 import { InMemorySubmissionRepository } from "../src/submission/repository.js";
 import { SubmissionService } from "../src/submission/service.js";
@@ -55,8 +57,9 @@ test("media link remains pending until a worker verifies it and retries are idem
   const replay = await service.upsertMediaLink(user, draft.id, "mainWork", "https://video.example.test/watch/abc", '"1"', "link-key-001");
   assert.equal(replay.link.id, first.link.id);
   assert.equal(replay.submission.draftRevision, 2);
-  await assert.rejects(() => service.upsertMediaLink(user, draft.id, "mainWork", "http://video.example.test/watch/abc", '"2"', "link-key-002"), (error: unknown) => error instanceof SubmissionError && error.code === "UNSAFE_URL");
-  await assert.rejects(() => service.upsertMediaLink(user, draft.id, "mainWork", "https://unapproved.example/watch/abc", '"2"', "link-key-003"), (error: unknown) => error instanceof SubmissionError && error.code === "UNSUPPORTED_PLATFORM");
+  const upgraded = await service.upsertMediaLink(user, draft.id, "mainWork", "http://video.example.test/watch/abc", '"2"', "link-key-002");
+  assert.equal(upgraded.link.originalUrl, "https://video.example.test/watch/abc");
+  await assert.rejects(() => service.upsertMediaLink(user, draft.id, "mainWork", "https://unapproved.example/watch/abc", '"3"', "link-key-003"), (error: unknown) => error instanceof SubmissionError && error.code === "UNSUPPORTED_PLATFORM");
 });
 
 test("link precheck never claims pass without platform metadata", async () => {
@@ -79,13 +82,24 @@ test("complete draft can be submitted once and becomes read only", async () => {
   const user = userFixture();
   const draft = await service.createDraft(user, { title: "最小投稿", direction: "frontier_tech", workForm: "animation" }, "submit-create");
   const linked = await service.upsertMediaLink(user, draft.id, "mainWork", "https://video.example.test/watch/submit", '"1"', "submit-link");
-  const ready = await service.patchDraft(user, draft.id, { rightsConfirmed: true, aiLabelConfirmed: true }, '"2"');
-  const submitted = await service.submit(user, draft.id, '"3"');
+  const makingOf = await service.upsertMediaLink(user, draft.id, "makingOf", "https://video.example.test/watch/making-of", '"2"', "submit-making-of");
+  const ready = await service.patchDraft(user, draft.id, {
+    synopsis: "完整作品简介",
+    creativeStatement: "完整创作说明",
+    aiContributionPercent: 80,
+    aiTools: ["ComfyUI"],
+    aiWorkflow: "生成、筛选、后期合成",
+    humanContribution: "脚本、剪辑与艺术指导",
+    rightsConfirmed: true,
+    aiLabelConfirmed: true,
+  }, '"3"');
+  const submitted = await service.submit(user, draft.id, '"4"');
   assert.equal(linked.submission.draftRevision, 2);
-  assert.equal(ready.draftRevision, 3);
+  assert.equal(makingOf.submission.draftRevision, 3);
+  assert.equal(ready.draftRevision, 4);
   assert.equal(submitted.currentStatus, "submitted");
-  assert.equal(submitted.draftRevision, 4);
-  await assert.rejects(() => service.submit(user, draft.id, '"4"'), { code: "SUBMISSION_NOT_EDITABLE" });
+  assert.equal(submitted.draftRevision, 5);
+  await assert.rejects(() => service.submit(user, draft.id, '"5"'), { code: "SUBMISSION_NOT_EDITABLE" });
 });
 
 test("admin submission review requires MFA and protects status transitions", async () => {
@@ -209,6 +223,44 @@ test("concurrent link retries reuse the original response and keys cannot cross 
   }
 });
 
+test("final submission validation reports required and conditional fields", async () => {
+  const draft: SubmissionDraft = {
+    title: "作品",
+    direction: "frontier_tech",
+    workForm: "vr",
+    synopsis: "简介",
+    creativeStatement: "创作说明",
+    aiContributionPercent: 80,
+    aiTools: ["ComfyUI"],
+    aiWorkflow: "流程",
+    humanContribution: "人工贡献",
+    rightsConfirmed: true,
+    aiLabelConfirmed: true,
+    templateConfirmed: null,
+  };
+  const issues = getSubmissionIssues(draft, { mainWork: "https://v.douyin.com/a" });
+  assert.equal(requiresGuideVideo("vr"), true);
+  assert.equal(issues.some((issue) => issue.field === "makingOf"), true);
+  assert.equal(issues.some((issue) => issue.field === "guideVideo"), true);
+  assert.equal(issues.some((issue) => issue.field === "experience"), false);
+  assert.equal(issues.some((issue) => issue.field === "templateConfirmed"), false);
+});
+
+test("video share links normalize safely for all approved platforms", async () => {
+  const cases: Array<[string, string]> = [
+    ["https://www.douyin.com/video/1?from=share#fragment", "https://www.douyin.com/video/1?from=share"],
+    ["作品链接：\nhttp://b23.tv/abc?x=1", "https://b23.tv/abc?x=1"],
+    ["小红书 https://xhslink.com/a?x=1", "https://xhslink.com/a?x=1"],
+    ["视频号：https://channels.weixin.qq.com/a?x=1。", "https://channels.weixin.qq.com/a?x=1"],
+  ];
+  for (const [input, expected] of cases) assert.equal(normalizeVideoShareInput(input), expected);
+  assert.throws(() => normalizeVideoShareInput("douyin://video/1"), (error: unknown) => error instanceof VideoUrlError && error.code === "UNSAFE_URL");
+  assert.throws(() => normalizeVideoShareInput("分享口令 ABC"), (error: unknown) => error instanceof VideoUrlError && error.code === "VALIDATION_ERROR");
+  assert.throws(() => normalizeVideoShareInput("https://www.douyin.com/a https://b23.tv/b"), (error: unknown) => error instanceof VideoUrlError && error.code === "VALIDATION_ERROR");
+  assert.throws(() => normalizeVideoShareInput("https://user:pass@www.douyin.com/a"), (error: unknown) => error instanceof VideoUrlError && error.code === "UNSAFE_URL");
+  assert.throws(() => normalizeVideoShareInput("https://evil.example/a"), (error: unknown) => error instanceof VideoUrlError && error.code === "UNSUPPORTED_PLATFORM");
+  assert.throws(() => normalizeVideoShareInput("https://www.douyin.com/a", []), (error: unknown) => error instanceof VideoUrlError && error.code === "UNSUPPORTED_PLATFORM");
+});
 for (const [name, run] of cases) {
   await run();
   console.log(`PASS ${name}`);

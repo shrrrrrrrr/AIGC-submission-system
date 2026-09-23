@@ -33,7 +33,7 @@ const patchSubmissionSchema = z.object({
   aiLabelConfirmed: z.boolean().optional(),
   templateConfirmed: z.boolean().nullable().optional(),
 }).strict();
-const mediaLinkSchema = z.object({ purpose: z.enum(MEDIA_PURPOSES), url: z.string().max(2048) }).strict();
+const mediaLinkSchema = z.object({ purpose: z.enum(MEDIA_PURPOSES), url: z.string().max(4096) }).strict();
 const adminListSchema = z.object({ limit: z.coerce.number().int().min(1).max(50).default(50), status: z.enum(SUBMISSION_STATUSES).optional() });
 const submissionListSchema = z.object({ limit: z.coerce.number().int().min(1).max(50).default(20), cursor: z.string().uuid().optional(), status: z.literal("draft").optional() });
 const adminTransitionSchema = z.object({ targetStatus: z.enum(SUBMISSION_STATUSES), expectedStatus: z.enum(SUBMISSION_STATUSES), reason: z.string().trim().min(2).max(1000) }).strict();
@@ -410,7 +410,7 @@ function publicUser(user: User) {
   return { id: user.id, email: user.email, roles: user.roles, emailVerified: user.emailVerifiedAt !== null, mfaEnabled: user.mfaEnabled };
 }
 
-function errorBody(code: string, message: string, requestId: string, details?: Array<{ field: string; reason: string }>) {
+function errorBody(code: string, message: string, requestId: string, details?: Array<{ field: string; reason: string; message?: string }>) {
   return details ? { code, message, details, requestId } : { code, message, requestId };
 }
 
