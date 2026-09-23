@@ -58,6 +58,21 @@ test("media link remains pending until a worker verifies it and retries are idem
   await assert.rejects(() => service.upsertMediaLink(user, draft.id, "mainWork", "https://unapproved.example/watch/abc", '"2"', "link-key-003"), (error: unknown) => error instanceof SubmissionError && error.code === "UNSUPPORTED_PLATFORM");
 });
 
+test("complete draft can be submitted once and becomes read only", async () => {
+  const repository = new InMemorySubmissionRepository();
+  const service = new SubmissionService(repository, ["video.example.test"]);
+  const user = userFixture();
+  const draft = await service.createDraft(user, { title: "最小投稿", direction: "frontier_tech", workForm: "animation" }, "submit-create");
+  const linked = await service.upsertMediaLink(user, draft.id, "mainWork", "https://video.example.test/watch/submit", '"1"', "submit-link");
+  const ready = await service.patchDraft(user, draft.id, { rightsConfirmed: true, aiLabelConfirmed: true }, '"2"');
+  const submitted = await service.submit(user, draft.id, '"3"');
+  assert.equal(linked.submission.draftRevision, 2);
+  assert.equal(ready.draftRevision, 3);
+  assert.equal(submitted.currentStatus, "submitted");
+  assert.equal(submitted.draftRevision, 4);
+  await assert.rejects(() => service.submit(user, draft.id, '"4"'), { code: "SUBMISSION_NOT_EDITABLE" });
+});
+
 test("submission API applies session CSRF, idempotency and ETag headers", async () => {
   const authRepository = new InMemoryAuthRepository();
   const submissionRepository = new InMemorySubmissionRepository();

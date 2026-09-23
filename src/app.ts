@@ -267,6 +267,21 @@ export function createApp(dependencies: AppDependencies): Hono<RequestContext> {
     }
   });
 
+  app.post("/api/v1/submissions/:id/submit", async (c) => {
+    const requestId = c.get("requestId");
+    const sessionResult = await dependencies.auth.getSession(getCookie(c, SESSION_COOKIE));
+    if (!sessionResult) return c.json(errorBody("UNAUTHENTICATED", "请先登录", requestId), 401);
+    if (!csrfMatches(c, sessionResult.session.csrfToken)) return c.json(errorBody("CSRF_INVALID", "请求校验失败", requestId), 403);
+    if (!dependencies.submissions) return c.json(errorBody("SUBMISSIONS_UNAVAILABLE", "投稿服务暂不可用", requestId), 503);
+    try {
+      const submission = await dependencies.submissions.submit(sessionResult.user, c.req.param("id"), c.req.header("if-match"), new Date(), submissionContext(c, requestId));
+      c.header("ETag", draftEtag(submission.draftRevision));
+      return c.json({ submission: publicSubmission(submission), requestId });
+    } catch (error) {
+      return handleError(c, error, requestId);
+    }
+  });
+
   app.notFound((c) => c.json(errorBody("NOT_FOUND", "资源不存在", c.get("requestId") || newId()), 404));
   app.onError((error, c) => handleError(c, error, c.get("requestId") || newId()));
   return app;

@@ -140,6 +140,20 @@ export class SubmissionService {
     });
   }
 
+  async submit(user: User, submissionId: string, ifMatch: string | undefined, now = new Date(), context?: SubmissionRequestContext): Promise<Submission> {
+    return this.repository.transaction(async (repository, transactionContext) => {
+      const submission = await getOwned(repository, user, submissionId);
+      requireEditable(submission);
+      assertRevision(submission.draftRevision, ifMatch);
+      if (!submission.mediaLinks.some((link) => link.purpose === "mainWork")) throw new SubmissionError("SUBMISSION_INCOMPLETE", 422, "请先保存主体作品链接");
+      if (!submission.draft.rightsConfirmed || !submission.draft.aiLabelConfirmed) throw new SubmissionError("SUBMISSION_INCOMPLETE", 422, "请完成版权与 AI 内容声明");
+      const updated = { ...submission, currentStatus: "submitted" as const, draftRevision: submission.draftRevision + 1, updatedAt: now };
+      await repository.update(updated);
+      await this.audit("submission.submit", user, updated, context, undefined, transactionContext);
+      return updated;
+    });
+  }
+
   private async audit(action: string, user: User, submission: Submission, context?: SubmissionRequestContext, metadata?: Record<string, string>, transactionContext?: SubmissionTransactionContext): Promise<void> {
     const writer = transactionContext?.audit ?? this.auditWriter;
     if (!writer || !context) return;
