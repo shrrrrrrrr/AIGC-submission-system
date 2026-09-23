@@ -87,6 +87,24 @@ test("complete draft can be submitted once and becomes read only", async () => {
   await assert.rejects(() => service.submit(user, draft.id, '"4"'), { code: "SUBMISSION_NOT_EDITABLE" });
 });
 
+test("admin submission review requires MFA and protects status transitions", async () => {
+  const repository = new InMemorySubmissionRepository();
+  const service = new SubmissionService(repository);
+  const participant = userFixture();
+  const draft = await service.createDraft(participant, { title: "管理员审核", direction: "frontier_tech", workForm: "animation" }, "admin-review-create");
+  await repository.update({ ...draft, currentStatus: "submitted", updatedAt: new Date("2026-09-23T02:00:00.000Z") });
+  const admin: User = { ...participant, id: "00000000-0000-4000-8000-000000000023", roles: ["event_admin"], mfaEnabled: true };
+
+  assert.equal((await service.adminList(admin))[0]?.id, draft.id);
+  const detail = await service.adminGet(admin, draft.id);
+  assert.equal(detail.currentStatus, "submitted");
+  const moved = await service.adminTransition(admin, draft.id, "qualification_pass", "材料完整，进入资格通过", "submitted", new Date("2026-09-23T02:01:00.000Z"));
+  assert.equal(moved.currentStatus, "qualification_pass");
+  await assert.rejects(() => service.adminTransition(admin, draft.id, "reviewing", "重复处理", "submitted"), (error: unknown) => error instanceof SubmissionError && error.code === "STATUS_CONFLICT");
+  await assert.rejects(() => service.adminList({ ...admin, mfaEnabled: false }), (error: unknown) => error instanceof SubmissionError && error.code === "MFA_REQUIRED");
+  await assert.rejects(() => service.adminList(participant), (error: unknown) => error instanceof SubmissionError && error.code === "ADMIN_FORBIDDEN");
+});
+
 test("submission API applies session CSRF, idempotency and ETag headers", async () => {
   const authRepository = new InMemoryAuthRepository();
   const submissionRepository = new InMemorySubmissionRepository();
@@ -104,6 +122,8 @@ test("submission API applies session CSRF, idempotency and ETag headers", async 
   assert.equal(login.status, 200);
   const cookieHeader = login.headers.getSetCookie().map((cookie) => cookie.split(";")[0]).join("; ");
   const csrf = cookieHeader.match(/chinavr-csrf=([^;]+)/)?.[1];
+  const registered = [...authRepository.users.values()][0]!;
+  authRepository.users.set(registered.id, { ...registered, roles: ["participant", "event_admin"], mfaEnabled: true });
   const headers = { "content-type": "application/json", cookie: cookieHeader, "x-csrf-token": csrf!, "idempotency-key": "api-create-key" };
   const create = await app.request("http://localhost/api/v1/submissions", { method: "POST", headers, body: JSON.stringify({ title: "API 作品", direction: "traditional_culture", workForm: "animation" }) });
   assert.equal(create.status, 201);
@@ -113,6 +133,13 @@ test("submission API applies session CSRF, idempotency and ETag headers", async 
   const list = await app.request("http://localhost/api/v1/submissions", { headers: { cookie: cookieHeader } });
   assert.equal(list.status, 200);
   assert.equal(((await list.json()) as { items: Array<{ id: string }> }).items[0]?.id, body.submission.id);
+  const adminList = await app.request("http://localhost/api/v1/admin/submissions", { headers: { cookie: cookieHeader } });
+  assert.equal(adminList.status, 200);
+  assert.equal(((await adminList.json()) as { items: Array<{ id: string }> }).items[0]?.id, body.submission.id);
+  const adminDetail = await app.request(`http://localhost/api/v1/admin/submissions/${body.submission.id}`, { headers: { cookie: cookieHeader } });
+  assert.equal(adminDetail.status, 200);
+  const adminDetailBody = (await adminDetail.json()) as { submission: { mediaLinks: Array<Record<string, unknown>> } };
+  assert.equal("originalUrl" in (adminDetailBody.submission.mediaLinks[0] ?? {}), false);
   const missingCsrf = await app.request("http://localhost/api/v1/submissions", { method: "POST", headers: { "content-type": "application/json", cookie: cookieHeader, "idempotency-key": "api-create-key-2" }, body: JSON.stringify({ title: "缺少 CSRF", direction: "frontier_tech", workForm: "animation" }) });
   assert.equal(missingCsrf.status, 403);
 });

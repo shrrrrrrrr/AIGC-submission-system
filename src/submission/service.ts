@@ -3,8 +3,8 @@ import { newId, newOpaqueToken } from "../auth/crypto.js";
 import type { AuditEvent, User } from "../auth/types.js";
 import { SubmissionError } from "./errors.js";
 import type { SubmissionRepository, SubmissionTransactionContext } from "./repository.js";
-import type { CreateDraftInput, DraftPatch, MediaLink, MediaPurpose, Submission, SubmissionDirection, SubmissionDraft, WorkForm } from "./types.js";
-import { MEDIA_PURPOSES, SUBMISSION_DIRECTIONS, WORK_FORMS } from "./types.js";
+import type { CreateDraftInput, DraftPatch, MediaLink, MediaPurpose, Submission, SubmissionDirection, SubmissionDraft, SubmissionStatus, WorkForm } from "./types.js";
+import { MEDIA_PURPOSES, SUBMISSION_DIRECTIONS, SUBMISSION_STATUSES, WORK_FORMS } from "./types.js";
 import { inspectVideoLink } from "./precheck.js";
 
 export class SubmissionService {
@@ -156,6 +156,32 @@ export class SubmissionService {
     });
   }
 
+  async adminList(user: User): Promise<Submission[]> {
+    requireAdmin(user);
+    return this.repository.listAll();
+  }
+
+  async adminGet(user: User, submissionId: string): Promise<Submission> {
+    requireAdmin(user);
+    const submission = await this.repository.findById(submissionId);
+    if (!submission) throw new SubmissionError("SUBMISSION_NOT_FOUND", 404, "投稿不存在");
+    return submission;
+  }
+
+  async adminTransition(user: User, submissionId: string, targetStatus: SubmissionStatus, reason: string, expectedStatus: SubmissionStatus, now = new Date(), context?: SubmissionRequestContext): Promise<Submission> {
+    return this.repository.transaction(async (repository, transactionContext) => {
+      requireAdmin(user);
+      const submission = await repository.findById(submissionId);
+      if (!submission) throw new SubmissionError("SUBMISSION_NOT_FOUND", 404, "投稿不存在");
+      if (submission.currentStatus !== expectedStatus) throw new SubmissionError("STATUS_CONFLICT", 409, "投稿状态已变化，请刷新后重试");
+      validateTransition(targetStatus, expectedStatus, reason);
+      const updated: Submission = { ...submission, currentStatus: targetStatus, draftRevision: submission.draftRevision + 1, updatedAt: now };
+      await repository.update(updated);
+      await this.audit("admin.submission.transition", user, updated, context, { targetStatus, reason: reason.trim() }, transactionContext);
+      return updated;
+    });
+  }
+
   async submit(user: User, submissionId: string, ifMatch: string | undefined, now = new Date(), context?: SubmissionRequestContext): Promise<Submission> {
     return this.repository.transaction(async (repository, transactionContext) => {
       const submission = await getOwned(repository, user, submissionId);
@@ -189,6 +215,28 @@ export class SubmissionService {
 }
 
 export type SubmissionRequestContext = { requestId: string; ip?: string };
+
+function requireAdmin(user: User): void {
+  if (!user.emailVerifiedAt || (!user.roles.includes("event_admin") && !user.roles.includes("super_admin"))) {
+    throw new SubmissionError("ADMIN_FORBIDDEN", 403, "当前账号没有投稿管理权限");
+  }
+  if (!user.mfaEnabled) throw new SubmissionError("MFA_REQUIRED", 403, "管理员账号必须启用多因素认证");
+}
+
+function validateTransition(targetStatus: SubmissionStatus, expectedStatus: SubmissionStatus, reason: string): void {
+  if (!(SUBMISSION_STATUSES as readonly string[]).includes(targetStatus) || !(SUBMISSION_STATUSES as readonly string[]).includes(expectedStatus)) {
+    throw new SubmissionError("VALIDATION_ERROR", 422, "投稿状态无效");
+  }
+  if (reason.trim().length < 2 || reason.trim().length > 1000) {
+    throw new SubmissionError("VALIDATION_ERROR", 422, "处理原因需为 2—1,000 个字符", [{ field: "reason", reason: "REASON_LENGTH" }]);
+  }
+  const allowed: Record<SubmissionStatus, readonly SubmissionStatus[]> = {
+    draft: [], checking_links: [], ready: [], submitted: ["qualification_pass", "needs_supplement", "invalid", "withdrawn"],
+    needs_supplement: ["submitted", "invalid"], qualification_pass: ["reviewing", "invalid"], reviewing: ["shortlisted", "not_selected", "invalid"],
+    shortlisted: ["winner", "not_selected"], winner: [], not_selected: [], withdrawn: [], invalid: [],
+  };
+  if (!allowed[expectedStatus].includes(targetStatus)) throw new SubmissionError("INVALID_TRANSITION", 409, "当前状态不允许执行该流转");
+}
 
 function requireParticipant(user: User): void {
   if (!user.emailVerifiedAt) throw new SubmissionError("EMAIL_VERIFICATION_REQUIRED", 403, "请先完成邮箱验证");

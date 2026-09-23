@@ -22,7 +22,8 @@ export type MediaPurpose = (typeof MEDIA_PURPOSES)[number];
 export const PRECHECK_STATUSES = ["pending", "checking", "passed", "failed"] as const;
 export type PrecheckStatus = (typeof PRECHECK_STATUSES)[number];
 
-export type SubmissionStatus = "draft" | "checking_links" | "ready" | "submitted" | "needs_supplement" | "qualification_pass" | "reviewing" | "shortlisted" | "winner" | "not_selected" | "withdrawn" | "invalid";
+export const SUBMISSION_STATUSES = ["draft", "checking_links", "ready", "submitted", "needs_supplement", "qualification_pass", "reviewing", "shortlisted", "winner", "not_selected", "withdrawn", "invalid"] as const;
+export type SubmissionStatus = (typeof SUBMISSION_STATUSES)[number];
 
 export type SubmissionDraft = {
   title: string;

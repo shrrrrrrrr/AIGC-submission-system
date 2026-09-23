@@ -11,7 +11,7 @@ import type { User } from "./auth/types.js";
 import { SubmissionError } from "./submission/errors.js";
 import { SubmissionService } from "./submission/service.js";
 import type { SubmissionRequestContext } from "./submission/service.js";
-import { MEDIA_PURPOSES, SUBMISSION_DIRECTIONS, WORK_FORMS } from "./submission/types.js";
+import { MEDIA_PURPOSES, SUBMISSION_DIRECTIONS, SUBMISSION_STATUSES, WORK_FORMS } from "./submission/types.js";
 
 const registerSchema = z.object({ email: z.string(), password: z.string() });
 const loginSchema = registerSchema.extend({ mfaCode: z.string().length(6).optional() });
@@ -33,6 +33,8 @@ const patchSubmissionSchema = z.object({
   templateConfirmed: z.boolean().nullable().optional(),
 }).strict();
 const mediaLinkSchema = z.object({ purpose: z.enum(MEDIA_PURPOSES), url: z.string().max(2048) }).strict();
+const adminListSchema = z.object({ limit: z.coerce.number().int().min(1).max(50).default(50), status: z.enum(SUBMISSION_STATUSES).optional() });
+const adminTransitionSchema = z.object({ targetStatus: z.enum(SUBMISSION_STATUSES), expectedStatus: z.enum(SUBMISSION_STATUSES), reason: z.string().trim().min(2).max(1000) }).strict();
 const SESSION_COOKIE = "__Host-chinavr-session";
 const CSRF_COOKIE = "chinavr-csrf";
 
@@ -52,6 +54,7 @@ export function createApp(dependencies: AppDependencies): Hono<RequestContext> {
     await next();
   });
   app.use("/api/v1/submissions*", bodyLimit({ maxSize: 64 * 1024, onError: (c) => c.json(errorBody("BODY_TOO_LARGE", "请求内容过大", c.get("requestId")), 413) }));
+  app.use("/api/v1/admin/submissions*", bodyLimit({ maxSize: 16 * 1024, onError: (c) => c.json(errorBody("BODY_TOO_LARGE", "请求内容过大", c.get("requestId")), 413) }));
 
   app.post("/api/v1/auth/register", async (c) => {
     const requestId = c.get("requestId");
@@ -177,6 +180,50 @@ export function createApp(dependencies: AppDependencies): Hono<RequestContext> {
     const sessionResult = await dependencies.auth.getSession(getCookie(c, SESSION_COOKIE));
     if (!sessionResult) return c.json(errorBody("UNAUTHENTICATED", "请先登录", requestId), 401);
     return c.json({ user: publicUser(sessionResult.user), requestId });
+  });
+
+  app.get("/api/v1/admin/submissions", async (c) => {
+    const requestId = c.get("requestId");
+    const sessionResult = await dependencies.auth.getSession(getCookie(c, SESSION_COOKIE));
+    if (!sessionResult) return c.json(errorBody("UNAUTHENTICATED", "请先登录", requestId), 401);
+    if (!dependencies.submissions) return c.json(errorBody("SUBMISSIONS_UNAVAILABLE", "投稿服务暂不可用", requestId), 503);
+    const query = adminListSchema.safeParse(c.req.query());
+    if (!query.success) return c.json(errorBody("INVALID_REQUEST", "分页或状态参数无效", requestId), 422);
+    try {
+      const submissions = (await dependencies.submissions.adminList(sessionResult.user)).filter((item) => !query.data.status || item.currentStatus === query.data.status).slice(0, query.data.limit);
+      return c.json({ items: submissions.map(adminSubmissionSummary), requestId });
+    } catch (error) {
+      return handleError(c, error, requestId);
+    }
+  });
+
+  app.get("/api/v1/admin/submissions/:id", async (c) => {
+    const requestId = c.get("requestId");
+    const sessionResult = await dependencies.auth.getSession(getCookie(c, SESSION_COOKIE));
+    if (!sessionResult) return c.json(errorBody("UNAUTHENTICATED", "请先登录", requestId), 401);
+    if (!dependencies.submissions) return c.json(errorBody("SUBMISSIONS_UNAVAILABLE", "投稿服务暂不可用", requestId), 503);
+    try {
+      const submission = await dependencies.submissions.adminGet(sessionResult.user, c.req.param("id"));
+      return c.json({ submission: adminSafeSubmission(submission), requestId });
+    } catch (error) {
+      return handleError(c, error, requestId);
+    }
+  });
+
+  app.post("/api/v1/admin/submissions/:id/transitions", async (c) => {
+    const requestId = c.get("requestId");
+    const sessionResult = await dependencies.auth.getSession(getCookie(c, SESSION_COOKIE));
+    if (!sessionResult) return c.json(errorBody("UNAUTHENTICATED", "请先登录", requestId), 401);
+    if (!csrfMatches(c, sessionResult.session.csrfToken)) return c.json(errorBody("CSRF_INVALID", "请求校验失败", requestId), 403);
+    if (!dependencies.submissions) return c.json(errorBody("SUBMISSIONS_UNAVAILABLE", "投稿服务暂不可用", requestId), 503);
+    const body = adminTransitionSchema.safeParse(await safeJson(c));
+    if (!body.success) return c.json(errorBody("VALIDATION_ERROR", "状态流转参数无效", requestId), 422);
+    try {
+      const submission = await dependencies.submissions.adminTransition(sessionResult.user, c.req.param("id"), body.data.targetStatus, body.data.reason, body.data.expectedStatus, new Date(), submissionContext(c, requestId));
+      return c.json({ submission: adminSafeSubmission(submission), requestId });
+    } catch (error) {
+      return handleError(c, error, requestId);
+    }
   });
 
   app.post("/api/v1/submissions", async (c) => {
@@ -367,4 +414,15 @@ function publicSubmission(submission: import("./submission/types.js").Submission
 
 function publicMediaLink(link: import("./submission/types.js").MediaLink) {
   return { ...link, checkedAt: link.checkedAt?.toISOString() ?? null, expiresAt: link.expiresAt?.toISOString() ?? null };
+}
+
+function adminSubmissionSummary(submission: import("./submission/types.js").Submission) {
+  return { id: submission.id, receiptNo: submission.receiptNo, title: submission.draft.title, direction: submission.draft.direction, workForm: submission.draft.workForm, currentStatus: submission.currentStatus, currentVersionNo: submission.currentVersionNo, updatedAt: submission.updatedAt.toISOString() };
+}
+
+function adminSafeSubmission(submission: import("./submission/types.js").Submission) {
+  return { ...publicSubmission(submission), mediaLinks: submission.mediaLinks.map((link) => {
+    const { originalUrl: _originalUrl, canonicalUrl: _canonicalUrl, ...safe } = publicMediaLink(link);
+    return safe;
+  }) };
 }

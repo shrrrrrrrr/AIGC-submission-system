@@ -77,6 +77,11 @@ export class PostgresSubmissionRepository implements SubmissionRepository {
     return Promise.all(result.rows.map((row) => this.hydrate(row)));
   }
 
+  async listAll(): Promise<Submission[]> {
+    const result = await this.db().query<SubmissionRow>(submissionSelect + " ORDER BY s.updated_at DESC");
+    return Promise.all(result.rows.map((row) => this.hydrate(row)));
+  }
+
   async update(submission: Submission): Promise<void> {
     const result = await this.db().query(
       `UPDATE submissions SET current_status = $2, current_version_no = $3, draft_revision = $4, updated_at = $5

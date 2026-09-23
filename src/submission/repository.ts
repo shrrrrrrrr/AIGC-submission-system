@@ -20,6 +20,7 @@ export interface SubmissionRepository {
   findById(id: string): Promise<Submission | null>;
   findByReceiptNo(receiptNo: string): Promise<Submission | null>;
   listByOwner(ownerUserId: string): Promise<Submission[]>;
+  listAll(): Promise<Submission[]>;
   update(submission: Submission): Promise<void>;
   findIdempotency(ownerUserId: string, key: string): Promise<SubmissionIdempotencyRecord | null>;
   saveIdempotency(record: SubmissionIdempotencyRecord): Promise<void>;
@@ -68,6 +69,10 @@ export class InMemorySubmissionRepository implements SubmissionRepository {
 
   async listByOwner(ownerUserId: string): Promise<Submission[]> {
     return [...this.submissions.values()].filter((submission) => submission.ownerUserId === ownerUserId).sort((left, right) => right.updatedAt.getTime() - left.updatedAt.getTime()).map(cloneSubmission);
+  }
+
+  async listAll(): Promise<Submission[]> {
+    return [...this.submissions.values()].sort((left, right) => right.updatedAt.getTime() - left.updatedAt.getTime()).map(cloneSubmission);
   }
 
   async update(submission: Submission): Promise<void> {
