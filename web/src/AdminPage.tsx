@@ -51,6 +51,20 @@ export function AdminPage() {
 
   const availableTransitions = useMemo(() => selected ? transitions[selected.currentStatus] ?? [] : [], [selected]);
 
+  const openVerifiedLink = async (linkId: string) => {
+    if (!selected) return;
+    setWorking(true);
+    try {
+      const result = await api<{ url: string }>(`/admin/submissions/${selected.id}/media-links/${linkId}/open`, { method: "POST", body: JSON.stringify({ reason: "资格审查查看公开视频" }) });
+      window.open(result.data.url, "_blank", "noopener,noreferrer");
+      setNotice("已记录打开审计，正在打开已核验链接。");
+    } catch (error) {
+      setNotice(error instanceof ApiError ? error.message : "链接暂时无法打开。");
+    } finally {
+      setWorking(false);
+    }
+  };
+
   const submitTransition = async () => {
     if (!selected || !targetStatus || reason.trim().length < 2) return;
     setWorking(true);
@@ -87,7 +101,7 @@ export function AdminPage() {
           <div className="admin-detail-top"><div><span className="mono">{selected.receiptNo}</span><h2>{selected.title}</h2></div><span className="status-pill">{selected.currentStatus}</span></div>
           <dl className="admin-facts"><div><dt>投稿方向</dt><dd>{selected.direction}</dd></div><div><dt>作品形式</dt><dd>{selected.workForm}</dd></div><div><dt>版本</dt><dd>v{selected.currentVersionNo} · 修订 {selected.draftRevision}</dd></div></dl>
           <h3>链接预检摘要</h3>
-          <div className="admin-links">{selected.mediaLinks.length === 0 && <p className="muted-copy">尚未保存视频链接。</p>}{selected.mediaLinks.map((link) => <div className="admin-link" key={link.id}><strong>{link.purpose}</strong><span>{link.provider ?? "未识别平台"} · {link.precheckStatus}</span>{link.failureCode && <small>{link.failureCode}</small>}{link.precheckFindings.map((finding) => <small key={`${link.id}-${finding.code}`}>{finding.message}</small>)}</div>)}</div>
+          <div className="admin-links">{selected.mediaLinks.length === 0 && <p className="muted-copy">尚未保存视频链接。</p>}{selected.mediaLinks.map((link) => <div className="admin-link" key={link.id}><strong>{link.purpose}</strong><span>{link.provider ?? "未识别平台"} · {link.precheckStatus}</span>{link.failureCode && <small>{link.failureCode}</small>}{link.precheckFindings.map((finding) => <small key={`${link.id}-${finding.code}`}>{finding.message}</small>)}{link.precheckStatus === "passed" && <button className="text-button" type="button" onClick={() => void openVerifiedLink(link.id)} disabled={working}>打开已核验链接 ↗</button>}</div>)}</div>
           {availableTransitions.length > 0 && <div className="admin-transition"><h3>状态流转</h3><label htmlFor="admin-target">下一状态</label><select id="admin-target" value={targetStatus} onChange={(event) => setTargetStatus(event.target.value)}>{availableTransitions.map((status) => <option key={status} value={status}>{status}</option>)}</select><label htmlFor="admin-reason">处理原因</label><textarea id="admin-reason" value={reason} onChange={(event) => setReason(event.target.value)} minLength={2} maxLength={1000} placeholder="填写本次审查决定的原因" /><button className="button button-cinnabar" type="button" onClick={() => void submitTransition()} disabled={working || reason.trim().length < 2}>{working ? "正在保存…" : "保存状态决定"}</button></div>}
         </>}
       </article>

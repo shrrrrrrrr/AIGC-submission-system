@@ -182,6 +182,20 @@ export class SubmissionService {
     });
   }
 
+  async adminOpenMediaLink(user: User, submissionId: string, linkId: string, reason: string, now = new Date(), context?: SubmissionRequestContext): Promise<string> {
+    return this.repository.transaction(async (repository, transactionContext) => {
+      requireAdmin(user);
+      if (reason.trim().length < 2 || reason.trim().length > 500) throw new SubmissionError("VALIDATION_ERROR", 422, "打开原因需为 2—500 个字符", [{ field: "reason", reason: "REASON_LENGTH" }]);
+      const submission = await repository.findById(submissionId);
+      if (!submission) throw new SubmissionError("SUBMISSION_NOT_FOUND", 404, "投稿不存在");
+      const link = submission.mediaLinks.find((item) => item.id === linkId);
+      if (!link) throw new SubmissionError("MEDIA_LINK_NOT_FOUND", 404, "链接不存在");
+      if (link.precheckStatus !== "passed" || !link.canonicalUrl || !link.expiresAt || link.expiresAt <= now) throw new SubmissionError("LINK_NOT_VERIFIED", 409, "链接尚未通过有效预检，暂不能打开");
+      await this.audit("admin.media_link.open", user, submission, context, { purpose: link.purpose, reason: reason.trim() }, transactionContext);
+      return link.canonicalUrl;
+    });
+  }
+
   async submit(user: User, submissionId: string, ifMatch: string | undefined, now = new Date(), context?: SubmissionRequestContext): Promise<Submission> {
     return this.repository.transaction(async (repository, transactionContext) => {
       const submission = await getOwned(repository, user, submissionId);

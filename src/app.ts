@@ -35,6 +35,7 @@ const patchSubmissionSchema = z.object({
 const mediaLinkSchema = z.object({ purpose: z.enum(MEDIA_PURPOSES), url: z.string().max(2048) }).strict();
 const adminListSchema = z.object({ limit: z.coerce.number().int().min(1).max(50).default(50), status: z.enum(SUBMISSION_STATUSES).optional() });
 const adminTransitionSchema = z.object({ targetStatus: z.enum(SUBMISSION_STATUSES), expectedStatus: z.enum(SUBMISSION_STATUSES), reason: z.string().trim().min(2).max(1000) }).strict();
+const adminOpenLinkSchema = z.object({ reason: z.string().trim().min(2).max(500) }).strict();
 const SESSION_COOKIE = "__Host-chinavr-session";
 const CSRF_COOKIE = "chinavr-csrf";
 
@@ -205,6 +206,22 @@ export function createApp(dependencies: AppDependencies): Hono<RequestContext> {
     try {
       const submission = await dependencies.submissions.adminGet(sessionResult.user, c.req.param("id"));
       return c.json({ submission: adminSafeSubmission(submission), requestId });
+    } catch (error) {
+      return handleError(c, error, requestId);
+    }
+  });
+
+  app.post("/api/v1/admin/submissions/:id/media-links/:linkId/open", async (c) => {
+    const requestId = c.get("requestId");
+    const sessionResult = await dependencies.auth.getSession(getCookie(c, SESSION_COOKIE));
+    if (!sessionResult) return c.json(errorBody("UNAUTHENTICATED", "请先登录", requestId), 401);
+    if (!csrfMatches(c, sessionResult.session.csrfToken)) return c.json(errorBody("CSRF_INVALID", "请求校验失败", requestId), 403);
+    if (!dependencies.submissions) return c.json(errorBody("SUBMISSIONS_UNAVAILABLE", "投稿服务暂不可用", requestId), 503);
+    const body = adminOpenLinkSchema.safeParse(await safeJson(c));
+    if (!body.success) return c.json(errorBody("VALIDATION_ERROR", "打开原因无效", requestId), 422);
+    try {
+      const url = await dependencies.submissions.adminOpenMediaLink(sessionResult.user, c.req.param("id"), c.req.param("linkId"), body.data.reason, new Date(), submissionContext(c, requestId));
+      return c.json({ url, requestId });
     } catch (error) {
       return handleError(c, error, requestId);
     }

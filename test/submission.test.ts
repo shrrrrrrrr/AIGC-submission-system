@@ -3,6 +3,7 @@ import { createApp } from "../src/app.js";
 import { InMemoryAuthRepository } from "../src/auth/repository.js";
 import { AuthService } from "../src/auth/service.js";
 import type { User } from "../src/auth/types.js";
+import type { MediaLink } from "../src/submission/types.js";
 import { SubmissionError } from "../src/submission/errors.js";
 import { InMemorySubmissionRepository } from "../src/submission/repository.js";
 import { SubmissionService } from "../src/submission/service.js";
@@ -103,6 +104,13 @@ test("admin submission review requires MFA and protects status transitions", asy
   await assert.rejects(() => service.adminTransition(admin, draft.id, "reviewing", "重复处理", "submitted"), (error: unknown) => error instanceof SubmissionError && error.code === "STATUS_CONFLICT");
   await assert.rejects(() => service.adminList({ ...admin, mfaEnabled: false }), (error: unknown) => error instanceof SubmissionError && error.code === "MFA_REQUIRED");
   await assert.rejects(() => service.adminList(participant), (error: unknown) => error instanceof SubmissionError && error.code === "ADMIN_FORBIDDEN");
+  const verifiedLink: MediaLink = { id: "00000000-0000-4000-8000-000000000099", purpose: "mainWork", originalUrl: "https://www.bilibili.com/video/BV1", canonicalUrl: null, provider: "bilibili", externalVideoId: null, isPubliclyAccessible: true, durationSeconds: 120, width: 1920, height: 1080, precheckStatus: "failed", failureCode: "METADATA_UNAVAILABLE", precheckFindings: [], checkedAt: new Date("2026-09-23T02:00:00.000Z"), expiresAt: new Date("2026-09-23T02:30:00.000Z") };
+  await repository.update({ ...moved, mediaLinks: [verifiedLink] });
+  await assert.rejects(() => service.adminOpenMediaLink(admin, moved.id, verifiedLink.id, "审核查看", new Date("2026-09-23T02:05:00.000Z")), (error: unknown) => error instanceof SubmissionError && error.code === "LINK_NOT_VERIFIED");
+  const passedLink = { ...verifiedLink, canonicalUrl: "https://www.bilibili.com/video/BV1", precheckStatus: "passed" as const, failureCode: null, expiresAt: new Date("2026-09-23T02:30:00.000Z") };
+  await repository.update({ ...moved, mediaLinks: [passedLink] });
+  assert.equal(await service.adminOpenMediaLink(admin, moved.id, passedLink.id, "审核查看", new Date("2026-09-23T02:05:00.000Z")), passedLink.canonicalUrl);
+  await assert.rejects(() => service.adminOpenMediaLink(admin, draft.id, "00000000-0000-4000-8000-000000000098", "审核查看"), (error: unknown) => error instanceof SubmissionError && error.code === "MEDIA_LINK_NOT_FOUND");
 });
 
 test("submission API applies session CSRF, idempotency and ETag headers", async () => {
