@@ -36,7 +36,7 @@ const mailer = {
 {
   assert.throws(
     () => createRuntimeDependencies({ env: { NODE_ENV: "production", DATABASE_URL: "postgresql://db.example.test/app", MFA_ENCRYPTION_KEY: mfaKey, APPROVED_VIDEO_PLATFORMS: "example.com" } }),
-    /MAILER_MODE=formal/,
+    /MAILER_MODE=directmail/,
   );
   console.log("PASS production runtime rejects the development mailer stub");
 }
@@ -79,4 +79,34 @@ const mailer = {
   assert.equal(readyChecks, 1);
   assert.equal(closed, 1);
   console.log("PASS production runtime wires PostgreSQL pool and lifecycle");
+}
+
+{
+  let closed = 0;
+  const pool = {
+    async query() {
+      return { rows: [], rowCount: 0 };
+    },
+    async end() {
+      closed += 1;
+    },
+  } as unknown as Pool;
+  const runtime = createRuntimeDependencies({
+    env: {
+      NODE_ENV: "production",
+      DATABASE_URL: "postgresql://db.example.test/app",
+      MFA_ENCRYPTION_KEY: mfaKey,
+      APPROVED_VIDEO_PLATFORMS: "example.com",
+      MAILER_MODE: "directmail",
+      MAILER_ACCESS_KEY_ID: "test-id",
+      MAILER_ACCESS_KEY_SECRET: "test-secret",
+      MAILER_FROM_ADDRESS: "noreply@example.test",
+      APP_PUBLIC_URL: "https://submit.example.test",
+    },
+    poolFactory: () => pool,
+  });
+  assert.equal(runtime.mode, "postgres");
+  await runtime.close();
+  assert.equal(closed, 1);
+  console.log("PASS production runtime constructs DirectMail from isolated environment configuration");
 }

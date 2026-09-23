@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { Pool } from "pg";
 import type { PoolConfig } from "pg";
 import { MfaService } from "./auth/mfa.js";
+import { createDirectMailMailerFromEnv } from "./auth/directmail.js";
 import { PostgresAuthRepository } from "./auth/postgres-repository.js";
 import { InMemoryAuthRepository } from "./auth/repository.js";
 import { AuthService, type Mailer } from "./auth/service.js";
@@ -89,13 +90,15 @@ function developmentMailer(): Mailer {
 }
 
 function requireProductionMailer(env: NodeJS.ProcessEnv, mailer: Mailer | undefined): Mailer {
-  if (env.MAILER_MODE?.trim().toLowerCase() !== "formal") {
-    throw new Error("生产环境必须配置 MAILER_MODE=formal；开发邮件 stub 不得用于生产");
+  const mode = env.MAILER_MODE?.trim().toLowerCase();
+  if (mailer) {
+    if (mode !== "formal" && mode !== "directmail") throw new Error("MAILER_MODE 必须为 directmail 或 formal");
+    return mailer;
   }
-  if (!mailer) {
-    throw new Error("正式邮件适配器尚未接入，生产启动已阻断");
+  if (mode !== "directmail") {
+    throw new Error("生产环境必须配置 MAILER_MODE=directmail；开发邮件 stub 不得用于生产");
   }
-  return mailer;
+  return createDirectMailMailerFromEnv(env);
 }
 
 function requireDatabaseUrl(value: string | undefined): string {
