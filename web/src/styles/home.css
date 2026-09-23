@@ -135,3 +135,27 @@
 .event-cta > img { width: 120px; height: 120px; object-fit: contain; }
 .event-footer .footer-brand img { width: 92px; height: 58px; object-fit: contain; }
 .event-footer .footer-brand span { color: rgba(255,255,255,.82); font-family: "Noto Sans SC", "Microsoft YaHei", sans-serif; font-size: 13px; letter-spacing: 0; }
+/* 首屏人像水印：CSS 镜像使脸朝左，82% 透明，位于全部内容下方。 */
+.event-hero-simple-inner { position: relative; z-index: 1; }
+.event-hero-watermark {
+  position: absolute;
+  z-index: 0;
+  top: 50%;
+  right: 2vw;
+  display: block;
+  width: clamp(360px, 56vw, 720px);
+  height: auto;
+  opacity: .18;
+  transform: translateY(-50%) scaleX(-1);
+  pointer-events: none;
+  user-select: none;
+}
+@media (max-width: 820px) {
+  .event-hero-watermark {
+    top: 90px;
+    right: -6vw;
+    width: min(96vw, 560px);
+    opacity: .14;
+    transform: scaleX(-1);
+  }
+}

@@ -15,7 +15,7 @@ const emptyDraft: SubmissionDraft = {
   aiContributionPercent: null, aiTools: [], aiWorkflow: "", humanContribution: "", rightsConfirmed: false, aiLabelConfirmed: false, templateConfirmed: null,
 };
 const emptyLinks: LinkInputs = { mainWork: "", makingOf: "", guideVideo: "", experience: "" };
-const steps = ["方向与形式", "主体作品链接", "制作解析链接", "导览与体验", "权利与 AI 披露", "确认提交"];
+const steps = ["方向与形式", "主体作品链接", "制作解析链接", "导览与体验（选填）", "权利与 AI 披露", "确认提交"];
 const directions = { frontier_tech: "前沿科技", traditional_culture: "传统文化", science_fiction: "科学幻想" };
 const forms = { narrative: "叙事影像", documentary: "纪录影像", sci_fi: "科幻影像", experimental: "实验影像", animation: "动画", realtime: "实时作品", scientific_visualization: "科学可视化", three_d: "三维影像", vr: "VR", mr: "MR", other: "其他" };
 

@@ -6,8 +6,8 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<{ da
   const headers = new Headers(init.headers);
   if (init.body) headers.set("Content-Type", "application/json");
   if (init.method && init.method !== "GET") {
-    const cookie = document.cookie.split("; ").find((value) => value.startsWith("chinavr-csrf="));
-    if (cookie) headers.set("X-CSRF-Token", decodeURIComponent(cookie.slice("chinavr-csrf=".length)));
+    const cookie = document.cookie.split("; ").find((value) => value.startsWith("chinavr-csrf=") || value.startsWith("chinavr-preview-csrf="));
+    if (cookie) headers.set("X-CSRF-Token", decodeURIComponent(cookie.slice(cookie.startsWith("chinavr-preview-csrf=") ? "chinavr-preview-csrf=".length : "chinavr-csrf=".length)));
   }
   const response = await fetch(`/api/v1${path}`, { ...init, headers, credentials: "same-origin", cache: "no-store", signal: init.signal ?? AbortSignal.timeout(15000) });
   const data = response.status === 204 ? {} : await response.json();

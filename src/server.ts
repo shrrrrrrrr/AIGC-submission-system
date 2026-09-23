@@ -10,7 +10,7 @@ async function main(): Promise<void> {
     const port = Number(process.env.PORT || 3000);
     if (!Number.isInteger(port) || port < 1 || port > 65_535) throw new Error("PORT 必须是 1 至 65535 的整数");
 
-    const server = serve({ fetch: app.fetch, port });
+    const server = serve({ fetch: app.fetch, hostname: "127.0.0.1", port });
     let shuttingDown = false;
     const shutdown = async (signal: string): Promise<void> => {
       if (shuttingDown) return;
