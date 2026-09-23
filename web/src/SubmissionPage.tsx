@@ -140,6 +140,10 @@ export function SubmissionPage() {
 
   async function submitFinal() {
     if (busyRef.current || readOnly || !server) return;
+    if (dirty) {
+      setError("请先保存当前修改，再确认提交。");
+      return;
+    }
     busyRef.current = true;
     setBusy(true);
     setError("");
