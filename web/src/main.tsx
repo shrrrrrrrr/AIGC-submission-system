@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import "./styles.css";
 import { SubmissionPage } from "./SubmissionPage";
 
-type Route = "home" | "login" | "submit";
+type Route = "home" | "login" | "register" | "submit";
 type Notice = { tone: "success" | "error" | "info"; text: string };
 
 const navigation = [
@@ -57,7 +57,7 @@ function App() {
       <a className="skip-link" href="#main-content">跳到主要内容</a>
       <Header menuOpen={menuOpen} onMenuToggle={() => setMenuOpen((open) => !open)} onNavigate={navigate} />
       <main id="main-content">
-        {route === "home" ? <Home onNavigate={navigate} /> : route === "login" ? <LoginPage onNavigate={navigate} /> : <SubmissionPage />}
+        {route === "home" ? <Home onNavigate={navigate} /> : route === "login" ? <LoginPage onNavigate={navigate} /> : route === "register" ? <RegisterPage onNavigate={navigate} /> : <SubmissionPage />}
       </main>
       <Footer onNavigate={navigate} />
     </div>
@@ -66,7 +66,7 @@ function App() {
 
 function readRoute(): Route {
   const hash = window.location.hash.slice(1).split("?")[0];
-  return hash === "login" ? "login" : hash === "submit" ? "submit" : "home";
+  return hash === "login" ? "login" : hash === "register" ? "register" : hash === "submit" ? "submit" : "home";
 }
 
 function Header({ menuOpen, onMenuToggle, onNavigate }: { menuOpen: boolean; onMenuToggle: () => void; onNavigate: (href: string) => void }) {
@@ -172,7 +172,37 @@ function LoginPage({ onNavigate }: { onNavigate: (href: string) => void }) {
     }
   };
 
-  return <section className="auth-page section-pad" aria-labelledby="login-title"><div className="auth-layout"><div className="auth-intro"><div className="section-kicker inverse"><span>ACCOUNT / 01</span><span>SECURE ENTRY</span></div><h1 id="login-title">把下一步<br /><em>交给作品。</em></h1><p>登录后可以继续草稿、检测公开视频链接，并查看投稿状态。登录失败时我们不会透露邮箱是否已注册。</p><a className="text-link light-link" href="#home" onClick={() => onNavigate("#home")}>返回公开站 <span aria-hidden="true">↗</span></a></div><form className="auth-card" onSubmit={submit}><div className="card-topline"><span>CHINAVR 2026</span><span className="mono">AUTH / 01</span></div><label htmlFor="email">邮箱地址<span className="required">*</span></label><input id="email" name="email" type="email" autoComplete="email" spellCheck={false} value={email} onChange={(event) => setEmail(event.target.value)} required placeholder="name@example.com" /><label htmlFor="password">密码<span className="required">*</span></label><input id="password" name="password" type="password" autoComplete="current-password" spellCheck={false} value={password} onChange={(event) => setPassword(event.target.value)} required minLength={15} placeholder="至少 15 个字符" /><div className="form-meta"><a href="#register" onClick={(event) => { event.preventDefault(); setNotice({ tone: "info", text: "注册页面将在账号接口完成后接入。" }); }}>还没有账号？注册</a><a href="#reset" onClick={(event) => { event.preventDefault(); setNotice({ tone: "info", text: "重置密码会通过邮箱发送一次性链接。" }); }}>忘记密码</a></div>{notice && <div className={`form-notice ${notice.tone}`} role={notice.tone === "error" ? "alert" : "status"}>{notice.text}</div>}<button className="button button-cinnabar button-full" type="submit" disabled={submitting}>{submitting ? "正在验证…" : "安全登录"} <span aria-hidden="true">↗</span></button><p className="auth-footnote">会话使用安全 Cookie 保存；请勿在公共设备上保存密码。</p></form></div></section>;
+  return <section className="auth-page section-pad" aria-labelledby="login-title"><div className="auth-layout"><div className="auth-intro"><div className="section-kicker inverse"><span>ACCOUNT / 01</span><span>SECURE ENTRY</span></div><h1 id="login-title">把下一步<br /><em>交给作品。</em></h1><p>登录后可以继续草稿、检测公开视频链接，并查看投稿状态。登录失败时我们不会透露邮箱是否已注册。</p><a className="text-link light-link" href="#home" onClick={() => onNavigate("#home")}>返回公开站 <span aria-hidden="true">↗</span></a></div><form className="auth-card" onSubmit={submit}><div className="card-topline"><span>CHINAVR 2026</span><span className="mono">AUTH / 01</span></div><label htmlFor="email">邮箱地址<span className="required">*</span></label><input id="email" name="email" type="email" autoComplete="email" spellCheck={false} value={email} onChange={(event) => setEmail(event.target.value)} required placeholder="name@example.com" /><label htmlFor="password">密码<span className="required">*</span></label><input id="password" name="password" type="password" autoComplete="current-password" spellCheck={false} value={password} onChange={(event) => setPassword(event.target.value)} required minLength={15} placeholder="至少 15 个字符" /><div className="form-meta"><a href="#register" onClick={(event) => { event.preventDefault(); onNavigate("#register"); }}>还没有账号？注册</a><a href="#reset" onClick={(event) => { event.preventDefault(); setNotice({ tone: "info", text: "重置密码会通过邮箱发送一次性链接。" }); }}>忘记密码</a></div>{notice && <div className={`form-notice ${notice.tone}`} role={notice.tone === "error" ? "alert" : "status"}>{notice.text}</div>}<button className="button button-cinnabar button-full" type="submit" disabled={submitting}>{submitting ? "正在验证…" : "安全登录"} <span aria-hidden="true">↗</span></button><p className="auth-footnote">会话使用安全 Cookie 保存；请勿在公共设备上保存密码。</p></form></div></section>;
+}
+
+function RegisterPage({ onNavigate }: { onNavigate: (href: string) => void }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (password !== confirmPassword) {
+      setNotice({ tone: "error", text: "两次输入的密码不一致。" });
+      return;
+    }
+    setSubmitting(true);
+    setNotice(null);
+    try {
+      const response = await fetch("/api/v1/auth/register", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, password }) });
+      const body = await response.json().catch(() => ({})) as { message?: string };
+      if (!response.ok) throw new Error(body.message || "注册暂时不可用，请稍后再试");
+      setNotice({ tone: "success", text: "注册请求已提交，请查收邮箱并点击验证链接。部署后请使用网站正式域名打开邮件链接。" });
+    } catch (error) {
+      setNotice({ tone: "error", text: error instanceof Error ? error.message : "注册暂时不可用，请稍后再试" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return <section className="auth-page section-pad" aria-labelledby="register-title"><div className="auth-layout"><div className="auth-intro"><div className="section-kicker inverse"><span>ACCOUNT / 02</span><span>CREATE ACCESS</span></div><h1 id="register-title">先建立<br /><em>你的投稿身份。</em></h1><p>注册后通过邮箱验证账号，再登录投稿工作台保存作品信息与公开视频链接。</p><a className="text-link light-link" href="#home" onClick={() => onNavigate("#home")}>返回公开站 <span aria-hidden="true">↗</span></a></div><form className="auth-card" onSubmit={submit}><div className="card-topline"><span>CHINAVR 2026</span><span className="mono">AUTH / 02</span></div><label htmlFor="register-email">邮箱地址<span className="required">*</span></label><input id="register-email" name="email" type="email" autoComplete="email" spellCheck={false} value={email} onChange={(event) => setEmail(event.target.value)} required placeholder="name@example.com" /><label htmlFor="register-password">设置密码<span className="required">*</span></label><input id="register-password" name="password" type="password" autoComplete="new-password" spellCheck={false} value={password} onChange={(event) => setPassword(event.target.value)} required minLength={15} placeholder="至少 15 个字符" /><label htmlFor="register-password-confirm">确认密码<span className="required">*</span></label><input id="register-password-confirm" name="passwordConfirmation" type="password" autoComplete="new-password" spellCheck={false} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required minLength={15} placeholder="再次输入密码" />{notice && <div className={`form-notice ${notice.tone}`} role={notice.tone === "error" ? "alert" : "status"}>{notice.text}</div>}<button className="button button-cinnabar button-full" type="submit" disabled={submitting}>{submitting ? "正在创建…" : "创建账号"} <span aria-hidden="true">↗</span></button><div className="form-meta"><a href="#login" onClick={(event) => { event.preventDefault(); onNavigate("#login"); }}>已有账号？登录</a></div><p className="auth-footnote">我们不会在页面上显示或透露账号是否已存在。</p></form></div></section>;
 }
 
 function Footer({ onNavigate }: { onNavigate: (href: string) => void }) { return <footer className="site-footer"><div className="footer-brand"><BrandMark /><span>CHINAVR <em>2026</em></span></div><p>AI、VR 影像单元投稿系统<br /><span>PUBLIC VIDEO LINK SUBMISSION PLATFORM</span></p><div className="footer-links"><a href="#rules" onClick={() => onNavigate("#rules")}>参赛规则</a><a href="#notices" onClick={() => onNavigate("#notices")}>通知</a><a href="#login" onClick={() => onNavigate("#login")}>登录</a></div><small>© 2026 ChinaVR · 官方赛事信息以公告为准</small></footer>; }
