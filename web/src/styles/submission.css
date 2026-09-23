@@ -1,0 +1,13 @@
+/* 投稿工作台界面样式。 */
+.submission-page { min-height: 100vh; padding-top: 150px; color: var(--ink); background: var(--paper); }
+.submission-head { display: flex; align-items: end; justify-content: space-between; max-width: 1180px; margin: 0 auto 56px; }
+.submission-head h1 { color: var(--ink); font-size: clamp(50px, 6vw, 82px); }
+.submission-head h1 em { color: var(--cinnabar); }
+.submission-layout { display: grid; grid-template-columns: 270px minmax(0,1fr); max-width: 1180px; margin: 0 auto; background: var(--warm-white); border-top: 1px solid var(--border); }
+.step-rail { padding: 23px 0 30px; border-right: 1px solid var(--border); }
+.submission-card { min-width: 0; padding: 34px 48px 40px; }
+.submission-card-head { display: flex; align-items: start; justify-content: space-between; gap: 20px; padding-bottom: 22px; border-bottom: 1px solid var(--border); }
+.submission-card-head h2 { margin: 0; font-family: "Noto Serif SC", "Songti SC", Georgia, serif; font-size: 32px; font-weight: 500; }
+.field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }
+.submission-actions { display: flex; justify-content: end; gap: 13px; margin-top: 44px; padding-top: 22px; border-top: 1px solid var(--border); }
+@media (max-width: 620px) { .submission-page { padding-top: 112px; } .submission-head { display: block; margin-bottom: 35px; } .submission-head h1 { font-size: 52px; } .submission-layout { display: block; } .step-rail { padding: 17px 0 0; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--border); white-space: nowrap; } .submission-card { padding: 26px 20px 30px; } .submission-card-head { display: block; } .field-grid { display: block; } .submission-actions { justify-content: stretch; } }

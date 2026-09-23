@@ -2,6 +2,10 @@ import { StrictMode, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
+import "./styles/home.css";
+import "./styles/auth.css";
+import "./styles/submission.css";
+import "./styles/admin.css";
 import { SubmissionPage } from "./SubmissionPage";
 import { AdminPage } from "./AdminPage";
 
@@ -49,7 +53,7 @@ function readRoute(): Route {
 function Header({ menuOpen, onMenuToggle, onNavigate }: { menuOpen: boolean; onMenuToggle: () => void; onNavigate: (href: string) => void }) {
   return <header className="site-header event-header">
     <div className="header-inner">
-      <a className="brand event-brand" href="#home" aria-label="ChinaVR 2026 AI、VR影像单元首页" onClick={() => onNavigate("#home")}><img src="/assets/chinavr-logo-mark.png" alt="ChinaVR 标志" /><span><strong>ChinaVR</strong><b>2026</b></span></a>
+      <a className="brand event-brand" href="#home" aria-label="ChinaVR 2026 AI、VR影像单元首页" onClick={() => onNavigate("#home")}><img src="/assets/chinavr-2026-logo.png" alt="ChinaVR 2026 标志" /></a>
       <button className="menu-toggle" type="button" aria-label={menuOpen ? "关闭导航" : "打开导航"} aria-expanded={menuOpen} aria-controls="primary-nav" onClick={onMenuToggle}><span aria-hidden="true">{menuOpen ? "×" : "☰"}</span></button>
       <nav id="primary-nav" className={`primary-nav ${menuOpen ? "is-open" : ""}`} aria-label="主导航">
         {navigation.map(([href, label]) => <a key={href} href={href} onClick={() => onNavigate(href)}>{label}</a>)}
@@ -81,7 +85,7 @@ function Home({ onNavigate }: { onNavigate: (href: string) => void }) {
     <section className="event-section event-requirements" id="requirements" aria-labelledby="requirements-title"><div className="event-section-index">01 / WORK REQUIREMENTS</div><div className="event-heading"><h2 id="requirements-title">提交前，<em>请确认这些材料。</em></h2><p>以下内容整理自 AI、VR 影像单元征集要求，具体细则以后续组委会正式通知为准。</p></div><div className="requirements-grid"><div><h3>作品与链接</h3><ul><li>主体作品时长 2—10 分钟，另附不超过 1 分钟的制作解析。</li><li>主体作品和制作解析须发布在公开视频平台。</li><li>主体作品使用 3 秒统一电子剧场片头，并包含片尾。</li></ul></div><div><h3>技术与权利</h3><ul><li>技术规格不低于 1920×1080，建议 16:9 横屏。</li><li>AI 参与核心视听内容原则上不低于 80%。</li><li>音乐、字体、模型、数据与肖像等素材须拥有合法使用权。</li></ul></div><div><h3>投稿平台</h3><ul><li>公开视频平台：抖音、B 站、小红书、视频号。</li><li>提交创作构想、工具、工作流程与人工贡献说明。</li><li>学生参赛者须注明学校、专业及指导教师信息。</li></ul></div></div></section>
 
 
-    <section className="event-cta" aria-labelledby="cta-title"><img src="/assets/chinavr-logo-mark.png" alt="ChinaVR 标志" /><div><span className="event-section-index">READY WHEN YOU ARE</span><h2 id="cta-title">让作品先进入<br /><em>被看见的现场。</em></h2></div><a className="button button-cinnabar" href="#submit" onClick={() => onNavigate("#submit")}>开始投稿 <span aria-hidden="true">↗</span></a></section>
+    <section className="event-cta" aria-labelledby="cta-title"><img src="/assets/chinavr-2026-logo.png" alt="ChinaVR 2026 标志" /><div><span className="event-section-index">READY WHEN YOU ARE</span><h2 id="cta-title">让作品先进入<br /><em>被看见的现场。</em></h2></div><a className="button button-cinnabar" href="#submit" onClick={() => onNavigate("#submit")}>开始投稿 <span aria-hidden="true">↗</span></a></section>
   </>;
 }
 
@@ -144,7 +148,7 @@ function RegisterPage({ onNavigate }: { onNavigate: (href: string) => void }) {
   return <section className="auth-page section-pad" aria-labelledby="register-title"><div className="auth-layout"><div className="auth-intro"><div className="section-kicker inverse"><span>ACCOUNT / 02</span><span>CREATE ACCESS</span></div><h1 id="register-title">先建立<br /><em>你的投稿身份。</em></h1><p>注册后通过邮箱验证账号，再登录投稿工作台保存作品信息与公开视频链接。</p><a className="text-link light-link" href="#home" onClick={() => onNavigate("#home")}>返回公开站 <span aria-hidden="true">↗</span></a></div><form className="auth-card" onSubmit={submit}><div className="card-topline"><span>CHINAVR 2026</span><span className="mono">AUTH / 02</span></div><label htmlFor="register-email">邮箱地址<span className="required">*</span></label><input id="register-email" name="email" type="email" autoComplete="email" spellCheck={false} value={email} onChange={(event) => setEmail(event.target.value)} required placeholder="name@example.com" /><label htmlFor="register-password">设置密码<span className="required">*</span></label><input id="register-password" name="password" type="password" autoComplete="new-password" spellCheck={false} value={password} onChange={(event) => setPassword(event.target.value)} required minLength={6} placeholder="至少 6 个字符" /><label htmlFor="register-password-confirm">确认密码<span className="required">*</span></label><input id="register-password-confirm" name="passwordConfirmation" type="password" autoComplete="new-password" spellCheck={false} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required minLength={6} placeholder="再次输入密码" />{notice && <div className={`form-notice ${notice.tone}`} role={notice.tone === "error" ? "alert" : "status"}>{notice.text}</div>}<button className="button button-cinnabar button-full" type="submit" disabled={submitting}>{submitting ? "正在创建…" : "创建账号"} <span aria-hidden="true">↗</span></button><div className="form-meta"><a href="#login" onClick={(event) => { event.preventDefault(); onNavigate("#login"); }}>已有账号？登录</a></div><p className="auth-footnote">我们不会在页面上显示或透露账号是否已存在。</p></form></div></section>;
 }
 
-function Footer({ onNavigate }: { onNavigate: (href: string) => void }) { return <footer className="site-footer event-footer"><div className="footer-brand"><img src="/assets/chinavr-logo-mark.png" alt="ChinaVR 标志" /><span>ChinaVR <em>2026</em></span></div><p>AI、VR 影像单元<br /><span>第26届中国虚拟现实大会 · 中国广州</span></p><div className="footer-links"><a href="#requirements" onClick={() => onNavigate("#requirements")}>作品要求</a><a href="#timeline" onClick={() => onNavigate("#timeline")}>重要时间</a><a href="#login" onClick={() => onNavigate("#login")}>登录</a></div><small>© 2026 ChinaVR · 具体细则以组委会正式通知为准</small></footer>; }
+function Footer({ onNavigate }: { onNavigate: (href: string) => void }) { return <footer className="site-footer event-footer"><div className="footer-brand"><img src="/assets/chinavr-2026-logo.png" alt="ChinaVR 2026 标志" /><span>AI、VR 影像单元</span></div><p>AI、VR 影像单元<br /><span>第26届中国虚拟现实大会 · 中国广州</span></p><div className="footer-links"><a href="#requirements" onClick={() => onNavigate("#requirements")}>作品要求</a><a href="#login" onClick={() => onNavigate("#login")}>登录</a></div><small>© 2026 ChinaVR · 具体细则以组委会正式通知为准</small></footer>; }
 
 function BrandMark() { return <span className="brand-mark" aria-hidden="true"><i /><i /><i /><i /></span>; }
 

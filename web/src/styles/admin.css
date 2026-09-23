@@ -1,0 +1,13 @@
+/* 管理工作台界面样式。 */
+.admin-page { min-height: calc(100vh - 90px); color: var(--ink); background: var(--paper); }
+.admin-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; max-width: 1180px; margin: 0 auto 34px; }
+.admin-heading h1 { margin: 0; font-family: "Noto Serif SC", "Songti SC", Georgia, serif; font-size: clamp(38px,5vw,62px); font-weight: 500; letter-spacing: -.05em; }
+.admin-heading p { max-width: 640px; margin: 16px 0 0; color: var(--muted); font-size: 14px; line-height: 1.7; }
+.admin-grid { display: grid; grid-template-columns: 310px minmax(0,1fr); max-width: 1180px; min-height: 560px; margin: 0 auto; background: var(--warm-white); border-top: 1px solid var(--border); }
+.admin-list { border-right: 1px solid var(--border); }
+.admin-detail { min-width: 0; padding: 35px 42px 45px; }
+.admin-detail h2 { margin: 10px 0 0; font-family: "Noto Serif SC", "Songti SC", Georgia, serif; font-size: 32px; font-weight: 500; }
+.admin-facts { display: grid; grid-template-columns: repeat(3,1fr); gap: 15px; margin: 24px 0 36px; }
+.admin-transition { max-width: 540px; margin-top: 34px; padding-top: 20px; border-top: 1px solid var(--border); }
+@media (max-width: 820px) { .admin-grid { grid-template-columns: 240px minmax(0,1fr); } .admin-detail { padding-right: 28px; padding-left: 28px; } }
+@media (max-width: 620px) { .admin-page { padding-top: 112px; } .admin-heading { display: block; } .admin-grid { display: block; } .admin-list { border-right: 0; border-bottom: 1px solid var(--border); } .admin-detail { padding: 27px 20px 34px; } .admin-facts { grid-template-columns: 1fr 1fr; } }

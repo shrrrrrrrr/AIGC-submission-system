@@ -1,0 +1,16 @@
+/* 登录与注册界面样式。 */
+.auth-page { min-height: 100vh; padding-top: 150px; background: var(--deep); }
+.auth-layout { display: grid; grid-template-columns: minmax(280px, .8fr) minmax(360px, .7fr); align-items: center; gap: 10vw; max-width: 1100px; margin: 0 auto; }
+.auth-intro { color: var(--warm-white); }
+.auth-intro h1 { font-size: clamp(50px, 6vw, 82px); }
+.auth-intro h1 em { color: var(--cyan); }
+.auth-intro p { max-width: 430px; margin: 28px 0 35px; color: rgba(255,253,248,.64); font-size: 15px; }
+.auth-card { padding: 36px; color: var(--ink); background: var(--warm-white); box-shadow: 15px 15px 0 rgba(104,210,208,.11); }
+.auth-card label { display: block; margin: 22px 0 8px; color: var(--ink); font-size: 13px; font-weight: 700; }
+.auth-card input { display: block; width: 100%; min-height: 50px; margin-top: 8px; padding: 11px 13px; color: var(--ink); background: var(--warm-white); border: 1px solid var(--border); font-size: 14px; }
+.auth-card input:focus { border-color: var(--navy); box-shadow: 0 0 0 3px rgba(39,143,189,.15); }
+.form-meta { display: flex; justify-content: space-between; gap: 12px; margin: 18px 0 22px; color: var(--muted); font-size: 12px; }
+.form-notice { margin-bottom: 18px; padding: 10px 12px; border-left: 3px solid var(--navy); color: var(--navy); background: #eaf5f6; font-size: 13px; }
+.auth-footnote { margin: 22px 0 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
+@media (max-width: 820px) { .auth-layout { grid-template-columns: 1fr; max-width: 560px; } .auth-intro { display: grid; grid-template-columns: 1fr auto; gap: 0 30px; align-items: end; } .auth-intro .section-kicker, .auth-intro p { grid-column: 1 / -1; } }
+@media (max-width: 620px) { .auth-page { padding-top: 112px; } .auth-layout { gap: 44px; } .auth-intro { display: block; } .auth-intro h1 { font-size: 50px; } .auth-card { padding: 27px 22px; } }
