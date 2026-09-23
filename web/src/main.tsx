@@ -73,18 +73,19 @@ function Header({ menuOpen, onMenuToggle, onNavigate }: { menuOpen: boolean; onM
 }
 
 function Home({ onNavigate }: { onNavigate: (href: string) => void }) {
-  return <>
-    <section className="event-hero" aria-labelledby="event-title">
-      <div className="event-hero-image"><img src="/assets/chinavr-2026-poster.jpg" alt="ChinaVR 2026 第二十六届中国虚拟现实大会宣传图" /></div>
-      <div className="event-hero-overlay" />
-      <div className="event-hero-content">
-        <p className="eyebrow event-eyebrow"><span className="eyebrow-dot" /> 中国计算机学会 · ChinaVR 2026</p>
-        <h1 id="event-title">AI、VR<br /><em>影像单元</em></h1>
-        <p className="event-hero-lede">面向电影人、视觉艺术家、数字媒体团队、技术开发者与学生的全球作品征集。</p>
-        <div className="hero-actions"><a className="button button-cinnabar" href="#submit" onClick={() => onNavigate("#submit")}>进入投稿入口 <span aria-hidden="true">↗</span></a><a className="text-link light-link" href="#requirements" onClick={() => onNavigate("#requirements")}>查看作品要求 ↓</a></div>
+  return <>    <section className="event-hero event-hero-simple" aria-labelledby="event-title">
+      <div className="event-hero-simple-inner">
+        <div className="event-hero-content">
+          <p className="eyebrow event-eyebrow"><span className="eyebrow-dot" /> 中国计算机学会 · ChinaVR 2026</p>
+          <h1 id="event-title">AI、VR<br /><em>影像单元</em></h1>
+          <p className="event-hero-lede">第26届中国虚拟现实大会作品征集。欢迎电影人、视觉艺术家、数字媒体团队、技术开发者与学生投稿。</p>
+          <div className="hero-actions"><a className="button button-cinnabar" href="#submit" onClick={() => onNavigate("#submit")}>进入投稿入口 <span aria-hidden="true">↗</span></a><a className="text-link light-link" href="#requirements" onClick={() => onNavigate("#requirements")}>查看作品要求 ↓</a></div>
+        </div>
+        <figure className="event-hero-poster">
+          <img src="/assets/chinavr-2026-poster.jpg" alt="ChinaVR 2026 第二十六届中国虚拟现实大会宣传图" />
+          <figcaption><img src="/assets/ai-vr-film-mark.png" alt="AI、VR 影像视觉标志" /><span>虚拟现实与人工智能的双向赋能</span></figcaption>
+        </figure>
       </div>
-      <div className="event-hero-mark"><img src="/assets/ai-vr-film-mark.png" alt="AI、VR 影像视觉标志" /></div>
-      <div className="event-hero-stamp"><span>26TH</span><small>CHINA VR<br />GUANGZHOU</small></div>
     </section>
 
     <section className="event-facts" aria-label="大会关键信息"><div><span>大会时间</span><strong>2026.11.06—11.08</strong><small>中国 · 广州</small></div><div><span>投稿截止</span><strong>2026.10.12</strong><small>请在截止日前完成提交</small></div><div><span>作品范围</span><strong>AI · VR · XR</strong><small>影像、动画、实时图形与空间体验</small></div></section>
@@ -106,6 +107,7 @@ function Home({ onNavigate }: { onNavigate: (href: string) => void }) {
 }
 
 function LoginPage({ onNavigate }: { onNavigate: (href: string) => void }) {
+  const localPreview = (window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost") && window.location.port === "5173";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mfaCode, setMfaCode] = useState("");
@@ -130,7 +132,7 @@ function LoginPage({ onNavigate }: { onNavigate: (href: string) => void }) {
     }
   };
 
-  return <section className="auth-page section-pad" aria-labelledby="login-title"><div className="auth-layout"><div className="auth-intro"><div className="section-kicker inverse"><span>ACCOUNT / 01</span><span>SECURE ENTRY</span></div><h1 id="login-title">把下一步<br /><em>交给作品。</em></h1><p>登录后可以继续草稿、检测公开视频链接，并查看投稿状态。登录失败时我们不会透露邮箱是否已注册。</p><a className="text-link light-link" href="#home" onClick={() => onNavigate("#home")}>返回公开站 <span aria-hidden="true">↗</span></a></div><form className="auth-card" onSubmit={submit}><div className="card-topline"><span>CHINAVR 2026</span><span className="mono">AUTH / 01</span></div><label htmlFor="email">邮箱地址<span className="required">*</span></label><input id="email" name="email" type="email" autoComplete="email" spellCheck={false} value={email} onChange={(event) => setEmail(event.target.value)} required placeholder="name@example.com" /><label htmlFor="password">密码<span className="required">*</span></label><input id="password" name="password" type="password" autoComplete="current-password" spellCheck={false} value={password} onChange={(event) => setPassword(event.target.value)} required minLength={6} placeholder="至少 6 个字符" /><label htmlFor="mfa-code">管理员验证码<span className="optional">（需要时填写）</span></label><input id="mfa-code" name="mfaCode" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} autoComplete="one-time-code" value={mfaCode} onChange={(event) => setMfaCode(event.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="6 位验证码" /><div className="form-meta"><a href="#register" onClick={(event) => { event.preventDefault(); onNavigate("#register"); }}>还没有账号？注册</a><a href="#reset" onClick={(event) => { event.preventDefault(); setNotice({ tone: "info", text: "重置密码会通过邮箱发送一次性链接。" }); }}>忘记密码</a></div>{notice && <div className={`form-notice ${notice.tone}`} role={notice.tone === "error" ? "alert" : "status"}>{notice.text}</div>}<button className="button button-cinnabar button-full" type="submit" disabled={submitting}>{submitting ? "正在验证…" : "安全登录"} <span aria-hidden="true">↗</span></button><p className="auth-footnote">会话使用安全 Cookie 保存；请勿在公共设备上保存密码。</p></form></div></section>;
+  return <section className="auth-page section-pad" aria-labelledby="login-title"><div className="auth-layout"><div className="auth-intro"><div className="section-kicker inverse"><span>ACCOUNT / 01</span><span>SECURE ENTRY</span></div><h1 id="login-title">把下一步<br /><em>交给作品。</em></h1><p>登录后可以继续草稿、检测公开视频链接，并查看投稿状态。登录失败时我们不会透露邮箱是否已注册。</p><a className="text-link light-link" href="#home" onClick={() => onNavigate("#home")}>返回公开站 <span aria-hidden="true">↗</span></a></div><form className="auth-card" onSubmit={submit}><div className="card-topline"><span>CHINAVR 2026</span><span className="mono">AUTH / 01</span></div><label htmlFor="email">邮箱地址<span className="required">*</span></label><input id="email" name="email" type="email" autoComplete="email" spellCheck={false} value={email} onChange={(event) => setEmail(event.target.value)} required placeholder="name@example.com" /><label htmlFor="password">密码<span className="required">*</span></label><input id="password" name="password" type="password" autoComplete="current-password" spellCheck={false} value={password} onChange={(event) => setPassword(event.target.value)} required minLength={6} placeholder="至少 6 个字符" /><label htmlFor="mfa-code">管理员验证码<span className="optional">（需要时填写）</span></label><input id="mfa-code" name="mfaCode" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} autoComplete="one-time-code" value={mfaCode} onChange={(event) => setMfaCode(event.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="6 位验证码" />{localPreview && <div className="form-notice info" role="note">本地预览账号：preview@example.com　密码：123456</div>}<div className="form-meta"><a href="#register" onClick={(event) => { event.preventDefault(); onNavigate("#register"); }}>还没有账号？注册</a><a href="#reset" onClick={(event) => { event.preventDefault(); setNotice({ tone: "info", text: "重置密码会通过邮箱发送一次性链接。" }); }}>忘记密码</a></div>{notice && <div className={`form-notice ${notice.tone}`} role={notice.tone === "error" ? "alert" : "status"}>{notice.text}</div>}<button className="button button-cinnabar button-full" type="submit" disabled={submitting}>{submitting ? "正在验证…" : "安全登录"} <span aria-hidden="true">↗</span></button><p className="auth-footnote">会话使用安全 Cookie 保存；请勿在公共设备上保存密码。</p></form></div></section>;
 }
 
 function RegisterPage({ onNavigate }: { onNavigate: (href: string) => void }) {

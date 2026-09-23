@@ -9,6 +9,7 @@
   },
   "scripts": {
     "dev": "tsx src/server.ts",
+    "preview:server": "tsx scripts/preview-server.ts",
     "web:dev": "vite --config web/vite.config.ts",
     "start": "node dist/src/server.js",
     "build": "tsc -p tsconfig.json",

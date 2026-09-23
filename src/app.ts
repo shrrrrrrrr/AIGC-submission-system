@@ -36,18 +36,24 @@ const mediaLinkSchema = z.object({ purpose: z.enum(MEDIA_PURPOSES), url: z.strin
 const adminListSchema = z.object({ limit: z.coerce.number().int().min(1).max(50).default(50), status: z.enum(SUBMISSION_STATUSES).optional() });
 const adminTransitionSchema = z.object({ targetStatus: z.enum(SUBMISSION_STATUSES), expectedStatus: z.enum(SUBMISSION_STATUSES), reason: z.string().trim().min(2).max(1000) }).strict();
 const adminOpenLinkSchema = z.object({ reason: z.string().trim().min(2).max(500) }).strict();
-const SESSION_COOKIE = "__Host-chinavr-session";
-const CSRF_COOKIE = "chinavr-csrf";
+const PRODUCTION_SESSION_COOKIE = "__Host-chinavr-session";
+const PRODUCTION_CSRF_COOKIE = "chinavr-csrf";
 
 export type AppDependencies = {
   auth: AuthService;
   mfa?: MfaService;
   mfaVerifier?: (user: User, code: string) => Promise<boolean>;
   submissions?: SubmissionService;
+  /** Use only for the loopback in-memory preview; production keeps Secure cookies. */
+  cookieSecurity?: "secure" | "preview";
 };
 
 export function createApp(dependencies: AppDependencies): Hono<RequestContext> {
   const app = new Hono<RequestContext>();
+  const previewCookies = dependencies.cookieSecurity === "preview";
+  const sessionCookieName = previewCookies ? "chinavr-preview-session" : PRODUCTION_SESSION_COOKIE;
+  const csrfCookieName = previewCookies ? "chinavr-preview-csrf" : PRODUCTION_CSRF_COOKIE;
+  const secureCookies = !previewCookies;
 
   app.use("/api/v1/*", async (c, next) => {
     c.set("requestId", c.req.header("x-request-id") || newId());
@@ -101,8 +107,8 @@ export function createApp(dependencies: AppDependencies): Hono<RequestContext> {
         body.data.mfaCode,
         dependencies.mfaVerifier ?? (dependencies.mfa ? (user, code) => dependencies.mfa!.verifyLogin(user, code) : undefined),
       );
-      setCookie(c, SESSION_COOKIE, result.rawSessionToken, { httpOnly: true, secure: true, sameSite: "Lax", path: "/", maxAge: 28_800 });
-      setCookie(c, CSRF_COOKIE, result.csrfToken, { httpOnly: false, secure: true, sameSite: "Lax", path: "/", maxAge: 28_800 });
+      setCookie(c, sessionCookieName, result.rawSessionToken, { httpOnly: true, secure: secureCookies, sameSite: "Lax", path: "/", maxAge: 28_800 });
+      setCookie(c, csrfCookieName, result.csrfToken, { httpOnly: false, secure: secureCookies, sameSite: "Lax", path: "/", maxAge: 28_800 });
       return c.json({ user: publicUser(result.user), expiresAt: result.expiresAt.toISOString(), requestId });
     } catch (error) {
       return handleError(c, error, requestId);
@@ -111,9 +117,9 @@ export function createApp(dependencies: AppDependencies): Hono<RequestContext> {
 
   app.post("/api/v1/auth/mfa/enroll", async (c) => {
     const requestId = c.get("requestId");
-    const sessionResult = await dependencies.auth.getSession(getCookie(c, SESSION_COOKIE));
+    const sessionResult = await dependencies.auth.getSession(getCookie(c, sessionCookieName));
     if (!sessionResult) return c.json(errorBody("UNAUTHENTICATED", "请先登录", requestId), 401);
-    if (!csrfMatches(c, sessionResult.session.csrfToken)) return c.json(errorBody("CSRF_INVALID", "请求校验失败", requestId), 403);
+    if (!csrfMatches(c, sessionResult.session.csrfToken, csrfCookieName)) return c.json(errorBody("CSRF_INVALID", "请求校验失败", requestId), 403);
     if (!dependencies.mfa) return c.json(errorBody("MFA_UNAVAILABLE", "多因素认证暂不可用", requestId), 503);
     try {
       const result = await dependencies.mfa.beginEnrollment(sessionResult.user);
@@ -125,9 +131,9 @@ export function createApp(dependencies: AppDependencies): Hono<RequestContext> {
 
   app.post("/api/v1/auth/mfa/confirm", async (c) => {
     const requestId = c.get("requestId");
-    const sessionResult = await dependencies.auth.getSession(getCookie(c, SESSION_COOKIE));
+    const sessionResult = await dependencies.auth.getSession(getCookie(c, sessionCookieName));
     if (!sessionResult) return c.json(errorBody("UNAUTHENTICATED", "请先登录", requestId), 401);
-    if (!csrfMatches(c, sessionResult.session.csrfToken)) return c.json(errorBody("CSRF_INVALID", "请求校验失败", requestId), 403);
+    if (!csrfMatches(c, sessionResult.session.csrfToken, csrfCookieName)) return c.json(errorBody("CSRF_INVALID", "请求校验失败", requestId), 403);
     if (!dependencies.mfa) return c.json(errorBody("MFA_UNAVAILABLE", "多因素认证暂不可用", requestId), 503);
     const body = z.object({ code: z.string().length(6) }).safeParse(await safeJson(c));
     if (!body.success) return c.json(errorBody("INVALID_REQUEST", "请输入 6 位验证码", requestId), 422);
@@ -165,27 +171,27 @@ export function createApp(dependencies: AppDependencies): Hono<RequestContext> {
 
   app.post("/api/v1/auth/logout", async (c) => {
     const requestId = c.get("requestId");
-    const sessionResult = await dependencies.auth.getSession(getCookie(c, SESSION_COOKIE));
+    const sessionResult = await dependencies.auth.getSession(getCookie(c, sessionCookieName));
     if (!sessionResult) return c.json(errorBody("UNAUTHENTICATED", "请先登录", requestId), 401);
-    if (!csrfMatches(c, sessionResult.session.csrfToken)) {
+    if (!csrfMatches(c, sessionResult.session.csrfToken, csrfCookieName)) {
       return c.json(errorBody("CSRF_INVALID", "请求校验失败", requestId), 403);
     }
     await dependencies.auth.logout(sessionResult.session, requestId, c.req.header("x-forwarded-for"));
-    deleteCookie(c, SESSION_COOKIE, { path: "/", secure: true });
-    deleteCookie(c, CSRF_COOKIE, { path: "/" });
+    deleteCookie(c, sessionCookieName, { path: "/", secure: secureCookies });
+    deleteCookie(c, csrfCookieName, { path: "/" });
     return c.body(null, 204);
   });
 
   app.get("/api/v1/me", async (c) => {
     const requestId = c.get("requestId");
-    const sessionResult = await dependencies.auth.getSession(getCookie(c, SESSION_COOKIE));
+    const sessionResult = await dependencies.auth.getSession(getCookie(c, sessionCookieName));
     if (!sessionResult) return c.json(errorBody("UNAUTHENTICATED", "请先登录", requestId), 401);
     return c.json({ user: publicUser(sessionResult.user), requestId });
   });
 
   app.get("/api/v1/admin/submissions", async (c) => {
     const requestId = c.get("requestId");
-    const sessionResult = await dependencies.auth.getSession(getCookie(c, SESSION_COOKIE));
+    const sessionResult = await dependencies.auth.getSession(getCookie(c, sessionCookieName));
     if (!sessionResult) return c.json(errorBody("UNAUTHENTICATED", "请先登录", requestId), 401);
     if (!dependencies.submissions) return c.json(errorBody("SUBMISSIONS_UNAVAILABLE", "投稿服务暂不可用", requestId), 503);
     const query = adminListSchema.safeParse(c.req.query());
@@ -200,7 +206,7 @@ export function createApp(dependencies: AppDependencies): Hono<RequestContext> {
 
   app.get("/api/v1/admin/submissions/:id", async (c) => {
     const requestId = c.get("requestId");
-    const sessionResult = await dependencies.auth.getSession(getCookie(c, SESSION_COOKIE));
+    const sessionResult = await dependencies.auth.getSession(getCookie(c, sessionCookieName));
     if (!sessionResult) return c.json(errorBody("UNAUTHENTICATED", "请先登录", requestId), 401);
     if (!dependencies.submissions) return c.json(errorBody("SUBMISSIONS_UNAVAILABLE", "投稿服务暂不可用", requestId), 503);
     try {
@@ -213,9 +219,9 @@ export function createApp(dependencies: AppDependencies): Hono<RequestContext> {
 
   app.post("/api/v1/admin/submissions/:id/media-links/:linkId/open", async (c) => {
     const requestId = c.get("requestId");
-    const sessionResult = await dependencies.auth.getSession(getCookie(c, SESSION_COOKIE));
+    const sessionResult = await dependencies.auth.getSession(getCookie(c, sessionCookieName));
     if (!sessionResult) return c.json(errorBody("UNAUTHENTICATED", "请先登录", requestId), 401);
-    if (!csrfMatches(c, sessionResult.session.csrfToken)) return c.json(errorBody("CSRF_INVALID", "请求校验失败", requestId), 403);
+    if (!csrfMatches(c, sessionResult.session.csrfToken, csrfCookieName)) return c.json(errorBody("CSRF_INVALID", "请求校验失败", requestId), 403);
     if (!dependencies.submissions) return c.json(errorBody("SUBMISSIONS_UNAVAILABLE", "投稿服务暂不可用", requestId), 503);
     const body = adminOpenLinkSchema.safeParse(await safeJson(c));
     if (!body.success) return c.json(errorBody("VALIDATION_ERROR", "打开原因无效", requestId), 422);
@@ -229,9 +235,9 @@ export function createApp(dependencies: AppDependencies): Hono<RequestContext> {
 
   app.post("/api/v1/admin/submissions/:id/transitions", async (c) => {
     const requestId = c.get("requestId");
-    const sessionResult = await dependencies.auth.getSession(getCookie(c, SESSION_COOKIE));
+    const sessionResult = await dependencies.auth.getSession(getCookie(c, sessionCookieName));
     if (!sessionResult) return c.json(errorBody("UNAUTHENTICATED", "请先登录", requestId), 401);
-    if (!csrfMatches(c, sessionResult.session.csrfToken)) return c.json(errorBody("CSRF_INVALID", "请求校验失败", requestId), 403);
+    if (!csrfMatches(c, sessionResult.session.csrfToken, csrfCookieName)) return c.json(errorBody("CSRF_INVALID", "请求校验失败", requestId), 403);
     if (!dependencies.submissions) return c.json(errorBody("SUBMISSIONS_UNAVAILABLE", "投稿服务暂不可用", requestId), 503);
     const body = adminTransitionSchema.safeParse(await safeJson(c));
     if (!body.success) return c.json(errorBody("VALIDATION_ERROR", "状态流转参数无效", requestId), 422);
@@ -245,9 +251,9 @@ export function createApp(dependencies: AppDependencies): Hono<RequestContext> {
 
   app.post("/api/v1/submissions", async (c) => {
     const requestId = c.get("requestId");
-    const sessionResult = await dependencies.auth.getSession(getCookie(c, SESSION_COOKIE));
+    const sessionResult = await dependencies.auth.getSession(getCookie(c, sessionCookieName));
     if (!sessionResult) return c.json(errorBody("UNAUTHENTICATED", "请先登录", requestId), 401);
-    if (!csrfMatches(c, sessionResult.session.csrfToken)) return c.json(errorBody("CSRF_INVALID", "请求校验失败", requestId), 403);
+    if (!csrfMatches(c, sessionResult.session.csrfToken, csrfCookieName)) return c.json(errorBody("CSRF_INVALID", "请求校验失败", requestId), 403);
     if (!dependencies.submissions) return c.json(errorBody("SUBMISSIONS_UNAVAILABLE", "投稿服务暂不可用", requestId), 503);
     const body = createSubmissionSchema.safeParse(await safeJson(c));
     if (!body.success) return c.json(errorBody("VALIDATION_ERROR", "投稿基础信息不完整", requestId), 422);
@@ -264,7 +270,7 @@ export function createApp(dependencies: AppDependencies): Hono<RequestContext> {
 
   app.get("/api/v1/submissions", async (c) => {
     const requestId = c.get("requestId");
-    const sessionResult = await dependencies.auth.getSession(getCookie(c, SESSION_COOKIE));
+    const sessionResult = await dependencies.auth.getSession(getCookie(c, sessionCookieName));
     if (!sessionResult) return c.json(errorBody("UNAUTHENTICATED", "请先登录", requestId), 401);
     if (!dependencies.submissions) return c.json(errorBody("SUBMISSIONS_UNAVAILABLE", "投稿服务暂不可用", requestId), 503);
     try {
@@ -283,7 +289,7 @@ export function createApp(dependencies: AppDependencies): Hono<RequestContext> {
 
   app.get("/api/v1/submissions/:id", async (c) => {
     const requestId = c.get("requestId");
-    const sessionResult = await dependencies.auth.getSession(getCookie(c, SESSION_COOKIE));
+    const sessionResult = await dependencies.auth.getSession(getCookie(c, sessionCookieName));
     if (!sessionResult) return c.json(errorBody("UNAUTHENTICATED", "请先登录", requestId), 401);
     if (!dependencies.submissions) return c.json(errorBody("SUBMISSIONS_UNAVAILABLE", "投稿服务暂不可用", requestId), 503);
     try {
@@ -297,9 +303,9 @@ export function createApp(dependencies: AppDependencies): Hono<RequestContext> {
 
   app.patch("/api/v1/submissions/:id/draft", async (c) => {
     const requestId = c.get("requestId");
-    const sessionResult = await dependencies.auth.getSession(getCookie(c, SESSION_COOKIE));
+    const sessionResult = await dependencies.auth.getSession(getCookie(c, sessionCookieName));
     if (!sessionResult) return c.json(errorBody("UNAUTHENTICATED", "请先登录", requestId), 401);
-    if (!csrfMatches(c, sessionResult.session.csrfToken)) return c.json(errorBody("CSRF_INVALID", "请求校验失败", requestId), 403);
+    if (!csrfMatches(c, sessionResult.session.csrfToken, csrfCookieName)) return c.json(errorBody("CSRF_INVALID", "请求校验失败", requestId), 403);
     if (!dependencies.submissions) return c.json(errorBody("SUBMISSIONS_UNAVAILABLE", "投稿服务暂不可用", requestId), 503);
     const body = patchSubmissionSchema.safeParse(await safeJson(c));
     if (!body.success) return c.json(errorBody("VALIDATION_ERROR", "投稿内容格式无效", requestId), 422);
@@ -314,9 +320,9 @@ export function createApp(dependencies: AppDependencies): Hono<RequestContext> {
 
   app.post("/api/v1/submissions/:id/media-links", async (c) => {
     const requestId = c.get("requestId");
-    const sessionResult = await dependencies.auth.getSession(getCookie(c, SESSION_COOKIE));
+    const sessionResult = await dependencies.auth.getSession(getCookie(c, sessionCookieName));
     if (!sessionResult) return c.json(errorBody("UNAUTHENTICATED", "请先登录", requestId), 401);
-    if (!csrfMatches(c, sessionResult.session.csrfToken)) return c.json(errorBody("CSRF_INVALID", "请求校验失败", requestId), 403);
+    if (!csrfMatches(c, sessionResult.session.csrfToken, csrfCookieName)) return c.json(errorBody("CSRF_INVALID", "请求校验失败", requestId), 403);
     if (!dependencies.submissions) return c.json(errorBody("SUBMISSIONS_UNAVAILABLE", "投稿服务暂不可用", requestId), 503);
     const body = mediaLinkSchema.safeParse(await safeJson(c));
     if (!body.success) return c.json(errorBody("VALIDATION_ERROR", "链接用途或地址无效", requestId), 422);
@@ -333,9 +339,9 @@ export function createApp(dependencies: AppDependencies): Hono<RequestContext> {
 
   app.post("/api/v1/submissions/:id/media-links/:linkId/prechecks", async (c) => {
     const requestId = c.get("requestId");
-    const sessionResult = await dependencies.auth.getSession(getCookie(c, SESSION_COOKIE));
+    const sessionResult = await dependencies.auth.getSession(getCookie(c, sessionCookieName));
     if (!sessionResult) return c.json(errorBody("UNAUTHENTICATED", "请先登录", requestId), 401);
-    if (!csrfMatches(c, sessionResult.session.csrfToken)) return c.json(errorBody("CSRF_INVALID", "请求校验失败", requestId), 403);
+    if (!csrfMatches(c, sessionResult.session.csrfToken, csrfCookieName)) return c.json(errorBody("CSRF_INVALID", "请求校验失败", requestId), 403);
     if (!dependencies.submissions) return c.json(errorBody("SUBMISSIONS_UNAVAILABLE", "投稿服务暂不可用", requestId), 503);
     try {
       const result = await dependencies.submissions.precheckMediaLink(sessionResult.user, c.req.param("id"), c.req.param("linkId"), new Date(), submissionContext(c, requestId));
@@ -347,9 +353,9 @@ export function createApp(dependencies: AppDependencies): Hono<RequestContext> {
 
   app.post("/api/v1/submissions/:id/submit", async (c) => {
     const requestId = c.get("requestId");
-    const sessionResult = await dependencies.auth.getSession(getCookie(c, SESSION_COOKIE));
+    const sessionResult = await dependencies.auth.getSession(getCookie(c, sessionCookieName));
     if (!sessionResult) return c.json(errorBody("UNAUTHENTICATED", "请先登录", requestId), 401);
-    if (!csrfMatches(c, sessionResult.session.csrfToken)) return c.json(errorBody("CSRF_INVALID", "请求校验失败", requestId), 403);
+    if (!csrfMatches(c, sessionResult.session.csrfToken, csrfCookieName)) return c.json(errorBody("CSRF_INVALID", "请求校验失败", requestId), 403);
     if (!dependencies.submissions) return c.json(errorBody("SUBMISSIONS_UNAVAILABLE", "投稿服务暂不可用", requestId), 503);
     try {
       const submission = await dependencies.submissions.submit(sessionResult.user, c.req.param("id"), c.req.header("if-match"), new Date(), submissionContext(c, requestId));
@@ -406,8 +412,8 @@ function errorBody(code: string, message: string, requestId: string, details?: A
   return details ? { code, message, details, requestId } : { code, message, requestId };
 }
 
-function csrfMatches(c: Context<RequestContext>, expected: string): boolean {
-  return c.req.header("x-csrf-token") === getCookie(c, CSRF_COOKIE) && c.req.header("x-csrf-token") === expected;
+function csrfMatches(c: Context<RequestContext>, expected: string, csrfCookieName: string): boolean {
+  return c.req.header("x-csrf-token") === getCookie(c, csrfCookieName) && c.req.header("x-csrf-token") === expected;
 }
 
 function submissionContext(c: Context<RequestContext>, requestId: string): SubmissionRequestContext {
