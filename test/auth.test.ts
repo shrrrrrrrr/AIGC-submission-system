@@ -44,6 +44,14 @@ test("register does not reveal whether an email already exists", async () => {
   assert.equal(first.sent.length, 1);
 });
 
+test("passwords accept six characters and reject shorter values", async () => {
+  const fixture = setup();
+  const short = await fixture.app.request("http://localhost/api/v1/auth/register", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "short@example.com", password: "12345" }) });
+  assert.equal(short.status, 422);
+  const minimum = await fixture.app.request("http://localhost/api/v1/auth/register", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "minimum@example.com", password: "123456" }) });
+  assert.equal(minimum.status, 202);
+});
+
 test("verification token is one-time and login sets secure session cookies", async () => {
   const { app, sent, repository } = setup();
   await app.request("http://localhost/api/v1/auth/register", {

@@ -9,25 +9,17 @@ type Route = "home" | "login" | "register" | "submit" | "admin";
 type Notice = { tone: "success" | "error" | "info"; text: string };
 
 const navigation = [
-  ["#about", "赛事介绍"],
-  ["#tracks", "投稿方向"],
-  ["#rules", "参赛规则"],
-  ["#review", "评审标准"],
-  ["#timeline", "时间安排"],
-  ["#notices", "通知"],
+  ["#call", "征集说明"],
+  ["#themes", "三个方向"],
+  ["#requirements", "作品要求"],
+  ["#timeline", "重要时间"],
+  ["#jury", "评审标准"],
 ] as const;
 
-const tracks = [
-  { number: "01", title: "前沿科技", english: "FRONTIER TECHNOLOGY", text: "探索计算、感知与空间媒介的新表达。" },
-  { number: "02", title: "传统文化", english: "LIVING HERITAGE", text: "让文化记忆在新的观看方式中继续生长。" },
-  { number: "03", title: "科学幻想", english: "SPECULATIVE FUTURES", text: "以想象回应未知，建立可进入的未来场景。" },
-] as const;
-
-const steps = [
-  ["01", "准备材料", "确认作品信息、创作者资料与公开链接。"],
-  ["02", "逐条预检", "平台、可见性、时长和分辨率由服务端校验。"],
-  ["03", "确认提交", "确认声明后生成不可变的投稿版本。"],
-  ["04", "等待审查", "组委会完成资格审查后进入评审流程。"],
+const themes = [
+  { number: "01", title: "AI、VR与前沿科技", text: "突出前沿科学技术的合理运用，呈现技术解决问题的能力与新的应用可能。" },
+  { number: "02", title: "AI、VR与中华优秀传统文化", text: "用数字加工、智能感知与开源硬件等方式，让传统文化在新的观看关系中继续生长。" },
+  { number: "03", title: "AI、VR与科学幻想作品", text: "以科学规律为依据展开想象，呈现对科技趋势、未来社会与宇宙万物的艺术表达。" },
 ] as const;
 
 function App() {
@@ -53,16 +45,12 @@ function App() {
     window.location.hash = href.replace("#", "");
   };
 
-  return (
-    <div className={`site-shell route-${route}`}>
-      <a className="skip-link" href="#main-content">跳到主要内容</a>
-      <Header menuOpen={menuOpen} onMenuToggle={() => setMenuOpen((open) => !open)} onNavigate={navigate} />
-      <main id="main-content">
-        {route === "home" ? <Home onNavigate={navigate} /> : route === "login" ? <LoginPage onNavigate={navigate} /> : route === "register" ? <RegisterPage onNavigate={navigate} /> : route === "admin" ? <AdminPage /> : <SubmissionPage />}
-      </main>
-      <Footer onNavigate={navigate} />
-    </div>
-  );
+  return <div className={`site-shell route-${route}`}>
+    <a className="skip-link" href="#main-content">跳到主要内容</a>
+    <Header menuOpen={menuOpen} onMenuToggle={() => setMenuOpen((open) => !open)} onNavigate={navigate} />
+    <main id="main-content">{route === "home" ? <Home onNavigate={navigate} /> : route === "login" ? <LoginPage onNavigate={navigate} /> : route === "register" ? <RegisterPage onNavigate={navigate} /> : route === "admin" ? <AdminPage /> : <SubmissionPage />}</main>
+    <Footer onNavigate={navigate} />
+  </div>;
 }
 
 function readRoute(): Route {
@@ -71,83 +59,50 @@ function readRoute(): Route {
 }
 
 function Header({ menuOpen, onMenuToggle, onNavigate }: { menuOpen: boolean; onMenuToggle: () => void; onNavigate: (href: string) => void }) {
-  return (
-    <header className="site-header">
-      <div className="header-inner">
-        <a className="brand" href="#home" aria-label="CHINAVR 2026 首页" onClick={() => onNavigate("#home")}>
-          <BrandMark />
-          <span className="brand-wordmark"><strong>CHINAVR</strong><em>2026</em></span>
-        </a>
-        <button className="menu-toggle" type="button" aria-label={menuOpen ? "关闭导航" : "打开导航"} aria-expanded={menuOpen} aria-controls="primary-nav" onClick={onMenuToggle}>
-          <span aria-hidden="true">{menuOpen ? "×" : "☰"}</span>
-        </button>
-        <nav id="primary-nav" className={`primary-nav ${menuOpen ? "is-open" : ""}`} aria-label="主导航">
-          {navigation.map(([href, label]) => <a key={href} href={href} onClick={() => onNavigate(href)}>{label}</a>)}
-          <a className="header-login" href="#login" onClick={() => onNavigate("#login")}>登录</a>
-          <a className="button button-small button-cinnabar" href="#submit" onClick={() => onNavigate("#submit")}>立即投稿 <span aria-hidden="true">↗</span></a>
-        </nav>
-      </div>
-    </header>
-  );
+  return <header className="site-header event-header">
+    <div className="header-inner">
+      <a className="brand event-brand" href="#home" aria-label="ChinaVR 2026 AI、VR影像单元首页" onClick={() => onNavigate("#home")}><img src="/assets/chinavr-logo-mark.png" alt="ChinaVR 标志" /><span><strong>ChinaVR</strong><b>2026</b></span></a>
+      <button className="menu-toggle" type="button" aria-label={menuOpen ? "关闭导航" : "打开导航"} aria-expanded={menuOpen} aria-controls="primary-nav" onClick={onMenuToggle}><span aria-hidden="true">{menuOpen ? "×" : "☰"}</span></button>
+      <nav id="primary-nav" className={`primary-nav ${menuOpen ? "is-open" : ""}`} aria-label="主导航">
+        {navigation.map(([href, label]) => <a key={href} href={href} onClick={() => onNavigate(href)}>{label}</a>)}
+        <a className="header-login" href="#login" onClick={() => onNavigate("#login")}>登录</a>
+        <a className="button button-small button-cinnabar" href="#submit" onClick={() => onNavigate("#submit")}>立即投稿 <span aria-hidden="true">↗</span></a>
+      </nav>
+    </div>
+  </header>;
 }
 
 function Home({ onNavigate }: { onNavigate: (href: string) => void }) {
-  return (
-    <>
-      <section className="hero" id="home" aria-labelledby="hero-title">
-        <div className="hero-grid">
-          <div className="hero-copy reveal reveal-one">
-            <p className="eyebrow"><span className="eyebrow-dot" /> 第二十六届中国虚拟现实大会 · 影像单元</p>
-            <h1 id="hero-title">让作品进入<br /><span>新的观看现场</span></h1>
-            <p className="hero-lede">面向 AI、VR 与空间影像创作者的公开征集。用一份清晰、可追踪的投稿，开启作品的下一次展映。</p>
-            <div className="hero-actions">
-              <a className="button button-cinnabar" href="#submit" onClick={() => onNavigate("#submit")}>开始准备投稿 <span aria-hidden="true">↗</span></a>
-              <a className="text-link light-link" href="#rules" onClick={() => onNavigate("#rules")}>先看参赛规则 <span aria-hidden="true">↓</span></a>
-            </div>
-            <dl className="hero-facts" aria-label="投稿关键信息">
-              <div><dt>截止时间</dt><dd>以官方公告为准</dd></div>
-              <div><dt>作品时长</dt><dd><span className="mono">02:00—10:00</span></dd></div>
-              <div><dt>交付方式</dt><dd>公开视频链接</dd></div>
-            </dl>
-          </div>
-          <LightField />
-        </div>
-        <div className="hero-foot"><span>OPEN CALL / 2026</span><span className="scroll-cue"><i /> 向下探索</span></div>
-      </section>
+  return <>
+    <section className="event-hero" aria-labelledby="event-title">
+      <div className="event-hero-image"><img src="/assets/chinavr-2026-poster.jpg" alt="ChinaVR 2026 第二十六届中国虚拟现实大会宣传图" /></div>
+      <div className="event-hero-overlay" />
+      <div className="event-hero-content">
+        <p className="eyebrow event-eyebrow"><span className="eyebrow-dot" /> 中国计算机学会 · ChinaVR 2026</p>
+        <h1 id="event-title">AI、VR<br /><em>影像单元</em></h1>
+        <p className="event-hero-lede">面向电影人、视觉艺术家、数字媒体团队、技术开发者与学生的全球作品征集。</p>
+        <div className="hero-actions"><a className="button button-cinnabar" href="#submit" onClick={() => onNavigate("#submit")}>进入投稿入口 <span aria-hidden="true">↗</span></a><a className="text-link light-link" href="#requirements" onClick={() => onNavigate("#requirements")}>查看作品要求 ↓</a></div>
+      </div>
+      <div className="event-hero-mark"><img src="/assets/ai-vr-film-mark.png" alt="AI、VR 影像视觉标志" /></div>
+      <div className="event-hero-stamp"><span>26TH</span><small>CHINA VR<br />GUANGZHOU</small></div>
+    </section>
 
-      <section className="intro-section section-pad" id="about" aria-labelledby="intro-title">
-        <div className="section-kicker"><span>01</span><span>THE OPEN CALL</span></div>
-        <div className="intro-grid">
-          <h2 id="intro-title">一场关于<br /><em>未来影像</em>的<br />公开对话。</h2>
-          <div className="intro-body"><p className="lead-paragraph">我们相信，技术不是作品的终点，而是新的观看关系。ChinaVR 2026 AI、VR 影像单元，邀请创作者把算法、空间与叙事放在一起，提交一份可以被理解、被核验、被记住的作品。</p><p>本站只接收经认可的视频平台公开链接，不上传、不托管原始视频。每条链接都会经过服务端安全预检，提交后由组委会完成资格审查与专业评审。</p><a className="text-link dark-link" href="#tracks" onClick={() => onNavigate("#tracks")}>浏览三个投稿方向 <span aria-hidden="true">→</span></a></div>
-        </div>
-      </section>
+    <section className="event-facts" aria-label="大会关键信息"><div><span>大会时间</span><strong>2026.11.06—11.08</strong><small>中国 · 广州</small></div><div><span>投稿截止</span><strong>2026.10.12</strong><small>请在截止日前完成提交</small></div><div><span>作品范围</span><strong>AI · VR · XR</strong><small>影像、动画、实时图形与空间体验</small></div></section>
 
-      <section className="tracks-section section-pad" id="tracks" aria-labelledby="tracks-title">
-        <div className="section-heading"><div><div className="section-kicker"><span>02</span><span>CHOOSE YOUR FIELD</span></div><h2 id="tracks-title">你的作品，<em>从哪里出发？</em></h2></div><p>选择最能描述作品核心经验的方向。方向用于组织评审，不限制作品的媒介组合。</p></div>
-        <div className="track-grid">{tracks.map((track) => <article className="track-card" key={track.number}><span className="track-number mono">{track.number}</span><div className="track-line" /><h3>{track.title}</h3><p className="track-english">{track.english}</p><p>{track.text}</p><a className="track-arrow" href="#submit" onClick={() => onNavigate("#submit")} aria-label={`选择${track.title}方向`}>↗</a></article>)}</div>
-      </section>
+    <section className="event-section event-intro" id="call" aria-labelledby="call-title"><div className="event-section-index">01 / OPEN CALL</div><div className="event-intro-grid"><h2 id="call-title">让技术成为<br /><em>想象力的延伸。</em></h2><div><p className="event-lead">第26届虚拟现实大会 ChinaVR 2026 将于 2026 年 11 月 6 日至 8 日在广州举办。本届大会主题为“虚拟现实与人工智能的双向赋能”，AI、VR 影像单元面向全球征集作品。</p><p>我们邀请创作者把 AI、VR、文化与创意放在一起，提交一份可以被理解、被核验、被记住的影像作品。入选作品将在大会期间的 AI、VR 影像单元展区现场展示。</p><a className="text-link dark-link" href="#submit" onClick={() => onNavigate("#submit")}>开始准备投稿 <span aria-hidden="true">→</span></a></div></div></section>
 
-      <section className="rules-section section-pad" id="rules" aria-labelledby="rules-title">
-        <div className="section-heading"><div><div className="section-kicker"><span>03</span><span>PREPARE WITH CONFIDENCE</span></div><h2 id="rules-title">先准备好，<em>再开始。</em></h2></div><a className="text-link dark-link" href="#submit" onClick={() => onNavigate("#submit")}>查看投稿入口 <span aria-hidden="true">↗</span></a></div>
-        <div className="prep-grid"><div className="prep-statement"><span className="quote-mark">“</span><p>把创作时间留给作品，把流程交给系统。</p><span className="statement-note">一份材料清晰、链接可访问、声明完整的投稿，会更快进入审查。</span></div><div className="prep-list"><PrepItem number="A" title="作品链接" text="主体作品与制作解析发布在认可的公共视频平台。" /><PrepItem number="B" title="公开可见" text="无需登录即可访问，服务端会进行安全预检。" /><PrepItem number="C" title="创作声明" text="完成 AI 使用、版权与原创性等必要声明。" /></div></div>
-      </section>
+    <section className="event-section event-themes" id="themes" aria-labelledby="themes-title"><div className="event-section-index">02 / THREE FIELDS</div><div className="event-heading"><h2 id="themes-title">三个方向，<em>三种观看未来的方式。</em></h2><p>方向用于组织评审，不限制作品的媒介组合。选择最能描述作品核心经验的方向。</p></div><div className="theme-grid">{themes.map((theme) => <article className="theme-card" key={theme.number}><span className="theme-number mono">{theme.number}</span><h3>{theme.title}</h3><p>{theme.text}</p></article>)}</div></section>
 
-      <section className="review-section section-pad" id="review" aria-labelledby="review-title"><div className="review-layout"><div><div className="section-kicker inverse"><span>04</span><span>HOW IT MOVES</span></div><h2 id="review-title">从链接到<br /><em>展映现场。</em></h2></div><div className="process-grid">{steps.map(([number, title, text]) => <div className="process-step" key={number}><span className="process-number mono">{number}</span><h3>{title}</h3><p>{text}</p></div>)}</div></div></section>
+    <section className="event-section event-requirements" id="requirements" aria-labelledby="requirements-title"><div className="event-section-index">03 / WORK REQUIREMENTS</div><div className="event-heading"><h2 id="requirements-title">提交前，<em>请确认这些材料。</em></h2><p>以下内容整理自 AI、VR 影像单元征集要求，具体细则以组委会正式通知为准。</p></div><div className="requirements-grid"><div><h3>作品与链接</h3><ul><li>主体作品时长 2—10 分钟。</li><li>另附不超过 1 分钟的制作解析。</li><li>主体作品和制作解析须发布在公开视频平台。</li><li>主体作品使用 3 秒统一电子剧场片头，并包含片尾。</li></ul></div><div><h3>技术与权利</h3><ul><li>技术规格不低于 1920×1080，建议 16:9 横屏。</li><li>AI 参与核心视听内容原则上不低于 80%。</li><li>说明创作构想、工具、工作流程与人工贡献。</li><li>画面、音乐、字体、模型、数据与肖像等素材须拥有合法使用权。</li></ul></div><div><h3>适用形式</h3><ul><li>叙事、纪录、科幻、实验影像与动画。</li><li>实时影像、科研可视化、3D、VR、MR 与交互作品。</li><li>VR、交互与实时作品另交 1—5 分钟录屏或导览视频。</li><li>学生参赛者须注明学校、专业及指导教师信息。</li></ul></div></div></section>
 
-      <section className="timeline-section section-pad" id="timeline" aria-labelledby="timeline-title"><div className="section-heading"><div><div className="section-kicker"><span>05</span><span>KEY MOMENTS</span></div><h2 id="timeline-title">重要节点，<em>以官方公告为准。</em></h2></div><p className="timeline-note">赛事日期、场地与通知节点将在配置确认后同步更新。</p></div><div className="timeline-line"><div className="timeline-point is-active"><span className="timeline-dot" /><span className="timeline-date mono">NOW</span><strong>开放准备</strong><small>注册账号，整理材料</small></div><div className="timeline-point"><span className="timeline-dot" /><span className="timeline-date mono">TBD</span><strong>投稿截止</strong><small>以官方公告为准</small></div><div className="timeline-point"><span className="timeline-dot" /><span className="timeline-date mono">TBD</span><strong>结果通知</strong><small>以官方公告为准</small></div><div className="timeline-point"><span className="timeline-dot" /><span className="timeline-date mono">TBD</span><strong>展映归档</strong><small>以官方公告为准</small></div></div></section>
+    <section className="event-section event-timeline" id="timeline" aria-labelledby="timeline-title"><div className="event-section-index">04 / KEY DATES</div><div className="event-heading"><h2 id="timeline-title">从作品征集，<em>到大会展映。</em></h2></div><div className="date-grid"><div><span className="date-big">10.12</span><strong>作品征稿截止</strong><p>提交完整作品信息及公开视频链接。</p></div><div><span className="date-big">10.30</span><strong>录用通知</strong><p>组委会完成资格审查与作品评审。</p></div><div><span className="date-big">11.06—08</span><strong>公布与展映</strong><p>入围及获奖作品在大会期间集中展映。</p></div></div></section>
 
-      <section className="notice-section section-pad" id="notices" aria-labelledby="notice-title"><div className="notice-panel"><div><div className="section-kicker"><span>06</span><span>NOTICE BOARD</span></div><h2 id="notice-title">准备好让作品<br /><em>被看见了吗？</em></h2></div><div className="notice-action"><p>创建账号后，你可以保存草稿、逐条检测链接，并在提交后查看审查进度。</p><a className="button button-cinnabar" href="#submit" onClick={() => onNavigate("#submit")}>进入投稿系统 <span aria-hidden="true">↗</span></a></div></div></section>
-    </>
-  );
-}
+    <section className="event-section event-jury" id="jury" aria-labelledby="jury-title"><div className="event-section-index">05 / REVIEW</div><div className="event-jury-grid"><div><h2 id="jury-title">四个维度，<br /><em>共计 100 分。</em></h2><p>资格审查重点核验时长、AI 参与说明、生成内容标识、权利声明与作品价值观导向；专业初评和终评按统一评分表进行。</p></div><div className="score-list"><div><b>20</b><span><strong>主题契合度</strong><small>回应总命题与所选方向</small></span></div><div><b>30</b><span><strong>视觉表现力</strong><small>画面、镜头、声音与技术完成度</small></span></div><div><b>20</b><span><strong>技术创新性</strong><small>AIGC、CG 工具的复杂度与可控性</small></span></div><div><b>30</b><span><strong>叙事 / 概念深度</strong><small>结构、情感、视觉逻辑与启发性</small></span></div></div></div></section>
 
-function LightField() {
-  return <div className="light-field" aria-label="抽象光场坐标装饰" role="img"><div className="field-noise" /><div className="field-orbit orbit-one" /><div className="field-orbit orbit-two" /><div className="field-frame frame-one"><span /><span /><span /><span /></div><div className="field-frame frame-two"><span /><span /><span /><span /></div><div className="field-core"><i /><b /><strong /></div><div className="field-coordinates mono"><span>VR / 26.00</span><span>光场档案 · 01</span><span>34° 12′ 08″ N</span></div><div className="field-caption">IMAGE / SPACE / MEMORY</div></div>;
-}
+    <section className="event-source" aria-labelledby="source-title"><div><span className="event-section-index">06 / OFFICIAL SOURCES</span><h2 id="source-title">关注大会官方信息，<em>以最新通知为准。</em></h2><p>大会时间、征集细则和展映安排以中国计算机学会、CCF 虚拟现实与可视化技术专委会及其公众号发布的正式通知为准。</p></div><a className="button button-outline" href="https://www.ccf.org.cn/Chapters/TC/TC_Listing/TCVRV/" target="_blank" rel="noreferrer">查看 CCF 专委会 <span aria-hidden="true">↗</span></a></section>
 
-function PrepItem({ number, title, text }: { number: string; title: string; text: string }) {
-  return <div className="prep-item"><span className="prep-number mono">{number}</span><div><h3>{title}</h3><p>{text}</p></div><span className="prep-check" aria-hidden="true">✓</span></div>;
+    <section className="event-cta" aria-labelledby="cta-title"><img src="/assets/chinavr-logo-mark.png" alt="ChinaVR 标志" /><div><span className="event-section-index">READY WHEN YOU ARE</span><h2 id="cta-title">让作品先进入<br /><em>被看见的现场。</em></h2></div><a className="button button-cinnabar" href="#submit" onClick={() => onNavigate("#submit")}>开始投稿 <span aria-hidden="true">↗</span></a></section>
+  </>;
 }
 
 function LoginPage({ onNavigate }: { onNavigate: (href: string) => void }) {
@@ -175,7 +130,7 @@ function LoginPage({ onNavigate }: { onNavigate: (href: string) => void }) {
     }
   };
 
-  return <section className="auth-page section-pad" aria-labelledby="login-title"><div className="auth-layout"><div className="auth-intro"><div className="section-kicker inverse"><span>ACCOUNT / 01</span><span>SECURE ENTRY</span></div><h1 id="login-title">把下一步<br /><em>交给作品。</em></h1><p>登录后可以继续草稿、检测公开视频链接，并查看投稿状态。登录失败时我们不会透露邮箱是否已注册。</p><a className="text-link light-link" href="#home" onClick={() => onNavigate("#home")}>返回公开站 <span aria-hidden="true">↗</span></a></div><form className="auth-card" onSubmit={submit}><div className="card-topline"><span>CHINAVR 2026</span><span className="mono">AUTH / 01</span></div><label htmlFor="email">邮箱地址<span className="required">*</span></label><input id="email" name="email" type="email" autoComplete="email" spellCheck={false} value={email} onChange={(event) => setEmail(event.target.value)} required placeholder="name@example.com" /><label htmlFor="password">密码<span className="required">*</span></label><input id="password" name="password" type="password" autoComplete="current-password" spellCheck={false} value={password} onChange={(event) => setPassword(event.target.value)} required minLength={15} placeholder="至少 15 个字符" /><label htmlFor="mfa-code">管理员验证码<span className="optional">（需要时填写）</span></label><input id="mfa-code" name="mfaCode" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} autoComplete="one-time-code" value={mfaCode} onChange={(event) => setMfaCode(event.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="6 位验证码" /><div className="form-meta"><a href="#register" onClick={(event) => { event.preventDefault(); onNavigate("#register"); }}>还没有账号？注册</a><a href="#reset" onClick={(event) => { event.preventDefault(); setNotice({ tone: "info", text: "重置密码会通过邮箱发送一次性链接。" }); }}>忘记密码</a></div>{notice && <div className={`form-notice ${notice.tone}`} role={notice.tone === "error" ? "alert" : "status"}>{notice.text}</div>}<button className="button button-cinnabar button-full" type="submit" disabled={submitting}>{submitting ? "正在验证…" : "安全登录"} <span aria-hidden="true">↗</span></button><p className="auth-footnote">会话使用安全 Cookie 保存；请勿在公共设备上保存密码。</p></form></div></section>;
+  return <section className="auth-page section-pad" aria-labelledby="login-title"><div className="auth-layout"><div className="auth-intro"><div className="section-kicker inverse"><span>ACCOUNT / 01</span><span>SECURE ENTRY</span></div><h1 id="login-title">把下一步<br /><em>交给作品。</em></h1><p>登录后可以继续草稿、检测公开视频链接，并查看投稿状态。登录失败时我们不会透露邮箱是否已注册。</p><a className="text-link light-link" href="#home" onClick={() => onNavigate("#home")}>返回公开站 <span aria-hidden="true">↗</span></a></div><form className="auth-card" onSubmit={submit}><div className="card-topline"><span>CHINAVR 2026</span><span className="mono">AUTH / 01</span></div><label htmlFor="email">邮箱地址<span className="required">*</span></label><input id="email" name="email" type="email" autoComplete="email" spellCheck={false} value={email} onChange={(event) => setEmail(event.target.value)} required placeholder="name@example.com" /><label htmlFor="password">密码<span className="required">*</span></label><input id="password" name="password" type="password" autoComplete="current-password" spellCheck={false} value={password} onChange={(event) => setPassword(event.target.value)} required minLength={6} placeholder="至少 6 个字符" /><label htmlFor="mfa-code">管理员验证码<span className="optional">（需要时填写）</span></label><input id="mfa-code" name="mfaCode" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} autoComplete="one-time-code" value={mfaCode} onChange={(event) => setMfaCode(event.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="6 位验证码" /><div className="form-meta"><a href="#register" onClick={(event) => { event.preventDefault(); onNavigate("#register"); }}>还没有账号？注册</a><a href="#reset" onClick={(event) => { event.preventDefault(); setNotice({ tone: "info", text: "重置密码会通过邮箱发送一次性链接。" }); }}>忘记密码</a></div>{notice && <div className={`form-notice ${notice.tone}`} role={notice.tone === "error" ? "alert" : "status"}>{notice.text}</div>}<button className="button button-cinnabar button-full" type="submit" disabled={submitting}>{submitting ? "正在验证…" : "安全登录"} <span aria-hidden="true">↗</span></button><p className="auth-footnote">会话使用安全 Cookie 保存；请勿在公共设备上保存密码。</p></form></div></section>;
 }
 
 function RegisterPage({ onNavigate }: { onNavigate: (href: string) => void }) {
@@ -205,10 +160,10 @@ function RegisterPage({ onNavigate }: { onNavigate: (href: string) => void }) {
     }
   };
 
-  return <section className="auth-page section-pad" aria-labelledby="register-title"><div className="auth-layout"><div className="auth-intro"><div className="section-kicker inverse"><span>ACCOUNT / 02</span><span>CREATE ACCESS</span></div><h1 id="register-title">先建立<br /><em>你的投稿身份。</em></h1><p>注册后通过邮箱验证账号，再登录投稿工作台保存作品信息与公开视频链接。</p><a className="text-link light-link" href="#home" onClick={() => onNavigate("#home")}>返回公开站 <span aria-hidden="true">↗</span></a></div><form className="auth-card" onSubmit={submit}><div className="card-topline"><span>CHINAVR 2026</span><span className="mono">AUTH / 02</span></div><label htmlFor="register-email">邮箱地址<span className="required">*</span></label><input id="register-email" name="email" type="email" autoComplete="email" spellCheck={false} value={email} onChange={(event) => setEmail(event.target.value)} required placeholder="name@example.com" /><label htmlFor="register-password">设置密码<span className="required">*</span></label><input id="register-password" name="password" type="password" autoComplete="new-password" spellCheck={false} value={password} onChange={(event) => setPassword(event.target.value)} required minLength={15} placeholder="至少 15 个字符" /><label htmlFor="register-password-confirm">确认密码<span className="required">*</span></label><input id="register-password-confirm" name="passwordConfirmation" type="password" autoComplete="new-password" spellCheck={false} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required minLength={15} placeholder="再次输入密码" />{notice && <div className={`form-notice ${notice.tone}`} role={notice.tone === "error" ? "alert" : "status"}>{notice.text}</div>}<button className="button button-cinnabar button-full" type="submit" disabled={submitting}>{submitting ? "正在创建…" : "创建账号"} <span aria-hidden="true">↗</span></button><div className="form-meta"><a href="#login" onClick={(event) => { event.preventDefault(); onNavigate("#login"); }}>已有账号？登录</a></div><p className="auth-footnote">我们不会在页面上显示或透露账号是否已存在。</p></form></div></section>;
+  return <section className="auth-page section-pad" aria-labelledby="register-title"><div className="auth-layout"><div className="auth-intro"><div className="section-kicker inverse"><span>ACCOUNT / 02</span><span>CREATE ACCESS</span></div><h1 id="register-title">先建立<br /><em>你的投稿身份。</em></h1><p>注册后通过邮箱验证账号，再登录投稿工作台保存作品信息与公开视频链接。</p><a className="text-link light-link" href="#home" onClick={() => onNavigate("#home")}>返回公开站 <span aria-hidden="true">↗</span></a></div><form className="auth-card" onSubmit={submit}><div className="card-topline"><span>CHINAVR 2026</span><span className="mono">AUTH / 02</span></div><label htmlFor="register-email">邮箱地址<span className="required">*</span></label><input id="register-email" name="email" type="email" autoComplete="email" spellCheck={false} value={email} onChange={(event) => setEmail(event.target.value)} required placeholder="name@example.com" /><label htmlFor="register-password">设置密码<span className="required">*</span></label><input id="register-password" name="password" type="password" autoComplete="new-password" spellCheck={false} value={password} onChange={(event) => setPassword(event.target.value)} required minLength={6} placeholder="至少 6 个字符" /><label htmlFor="register-password-confirm">确认密码<span className="required">*</span></label><input id="register-password-confirm" name="passwordConfirmation" type="password" autoComplete="new-password" spellCheck={false} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required minLength={6} placeholder="再次输入密码" />{notice && <div className={`form-notice ${notice.tone}`} role={notice.tone === "error" ? "alert" : "status"}>{notice.text}</div>}<button className="button button-cinnabar button-full" type="submit" disabled={submitting}>{submitting ? "正在创建…" : "创建账号"} <span aria-hidden="true">↗</span></button><div className="form-meta"><a href="#login" onClick={(event) => { event.preventDefault(); onNavigate("#login"); }}>已有账号？登录</a></div><p className="auth-footnote">我们不会在页面上显示或透露账号是否已存在。</p></form></div></section>;
 }
 
-function Footer({ onNavigate }: { onNavigate: (href: string) => void }) { return <footer className="site-footer"><div className="footer-brand"><BrandMark /><span>CHINAVR <em>2026</em></span></div><p>AI、VR 影像单元投稿系统<br /><span>PUBLIC VIDEO LINK SUBMISSION PLATFORM</span></p><div className="footer-links"><a href="#rules" onClick={() => onNavigate("#rules")}>参赛规则</a><a href="#notices" onClick={() => onNavigate("#notices")}>通知</a><a href="#login" onClick={() => onNavigate("#login")}>登录</a></div><small>© 2026 ChinaVR · 官方赛事信息以公告为准</small></footer>; }
+function Footer({ onNavigate }: { onNavigate: (href: string) => void }) { return <footer className="site-footer event-footer"><div className="footer-brand"><img src="/assets/chinavr-logo-mark.png" alt="ChinaVR 标志" /><span>ChinaVR <em>2026</em></span></div><p>AI、VR 影像单元<br /><span>第26届中国虚拟现实大会 · 中国广州</span></p><div className="footer-links"><a href="#requirements" onClick={() => onNavigate("#requirements")}>作品要求</a><a href="#timeline" onClick={() => onNavigate("#timeline")}>重要时间</a><a href="#login" onClick={() => onNavigate("#login")}>登录</a></div><small>© 2026 ChinaVR · 具体细则以组委会正式通知为准</small></footer>; }
 
 function BrandMark() { return <span className="brand-mark" aria-hidden="true"><i /><i /><i /><i /></span>; }
 

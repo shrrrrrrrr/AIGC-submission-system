@@ -202,7 +202,7 @@ function validateEmail(email: string): void {
 }
 
 function validatePassword(password: string): void {
-  if (password.length < 15 || password.length > 256) {
-    throw new AuthError("INVALID_PASSWORD", 422, "密码长度需为 15 至 256 个字符");
+  if (password.length < 6 || password.length > 256) {
+    throw new AuthError("INVALID_PASSWORD", 422, "密码长度需为 6 至 256 个字符");
   }
 }
