@@ -267,6 +267,20 @@ export function createApp(dependencies: AppDependencies): Hono<RequestContext> {
     }
   });
 
+  app.post("/api/v1/submissions/:id/media-links/:linkId/prechecks", async (c) => {
+    const requestId = c.get("requestId");
+    const sessionResult = await dependencies.auth.getSession(getCookie(c, SESSION_COOKIE));
+    if (!sessionResult) return c.json(errorBody("UNAUTHENTICATED", "请先登录", requestId), 401);
+    if (!csrfMatches(c, sessionResult.session.csrfToken)) return c.json(errorBody("CSRF_INVALID", "请求校验失败", requestId), 403);
+    if (!dependencies.submissions) return c.json(errorBody("SUBMISSIONS_UNAVAILABLE", "投稿服务暂不可用", requestId), 503);
+    try {
+      const result = await dependencies.submissions.precheckMediaLink(sessionResult.user, c.req.param("id"), c.req.param("linkId"), new Date(), submissionContext(c, requestId));
+      return c.json({ submission: publicSubmission(result.submission), precheck: publicMediaLink(result.link), requestId }, 202);
+    } catch (error) {
+      return handleError(c, error, requestId);
+    }
+  });
+
   app.post("/api/v1/submissions/:id/submit", async (c) => {
     const requestId = c.get("requestId");
     const sessionResult = await dependencies.auth.getSession(getCookie(c, SESSION_COOKIE));

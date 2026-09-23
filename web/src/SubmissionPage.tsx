@@ -6,7 +6,7 @@ import { ApiError, api } from "./api";
 type SavedSubmission = Omit<Submission, "createdAt" | "updatedAt" | "mediaLinks"> & {
   createdAt: string;
   updatedAt: string;
-  mediaLinks: Array<{ id: string; purpose: MediaPurpose; originalUrl: string; precheckStatus: string }>;
+  mediaLinks: Array<{ id: string; purpose: MediaPurpose; originalUrl: string; precheckStatus: string; provider: string | null; failureCode: string | null; precheckFindings: Array<{ code: string; field: string; message: string }> }>;
 };
 type SavedResponse = { submission: SavedSubmission };
 type LinkInputs = Record<MediaPurpose, string>;
@@ -162,14 +162,39 @@ export function SubmissionPage() {
     }
   }
 
+  async function runPrecheck(purpose: MediaPurpose) {
+    if (busyRef.current || readOnly || !server) return;
+    const link = server.mediaLinks.find((item) => item.purpose === purpose && item.originalUrl === links[purpose]);
+    if (!link) {
+      setError("请先保存当前链接，再开始预检。");
+      return;
+    }
+    busyRef.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      const { data } = await api<SavedResponse>(`/submissions/${server.id}/media-links/${link.id}/prechecks`, { method: "POST" });
+      setServer(data.submission);
+      setDirty(false);
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "链接预检失败，请重试");
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  }
+
   const time = server ? new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(new Date(server.updatedAt)) : null;
-  const status = busy ? "正在处理…" : readOnly ? `已提交 · ${server?.receiptNo ?? ""}` : dirty ? "有未保存的修改" : time ? `已保存于 ${time} · 未正式提交` : "尚未创建草稿";
-  const linkField = (purpose: MediaPurpose, label: string) => (
-    <label className="field" key={purpose}>{label}
+  const status = busy ? "正在处理…" : readOnly ? "已提交 · " + (server?.receiptNo ?? "") : dirty ? "有未保存的修改" : time ? "已保存于 " + time + " · 未正式提交" : "尚未创建草稿";
+  const linkField = (purpose: MediaPurpose, label: string) => {
+    const saved = server?.mediaLinks.find((link) => link.purpose === purpose && link.originalUrl === links[purpose]);
+    const precheckText = !saved ? "未保存此链接" : saved.precheckStatus === "passed" ? "预检通过" : saved.precheckStatus === "failed" ? "预检未通过 · " + (saved.failureCode ?? "请查看详情") : "等待预检";
+    return <label className="field" key={purpose}>{label}
       <input name={purpose} type="url" inputMode="url" spellCheck={false} autoComplete="off" maxLength={2048} placeholder="https://…" value={links[purpose]} onChange={(event) => { setLinks({ ...links, [purpose]: event.target.value }); setDirty(true); }} />
-      <span className="field-help">{server?.mediaLinks.some((link) => link.purpose === purpose && link.originalUrl === links[purpose]) ? "已保存 · 等待预检" : "未保存此链接"}</span>
-    </label>
-  );
+      <span className="field-help">{precheckText}</span>
+      {saved && !readOnly && <button className="text-button" type="button" disabled={busy} onClick={() => void runPrecheck(purpose)}>开始预检</button>}
+    </label>;
+  }
 
   return <section className="submission-page section-pad" aria-labelledby="submission-title">
     <div className="submission-head"><div><div className="section-kicker"><span>SUBMISSION</span><span>作品草稿</span></div><h1 id="submission-title">准备一份<br /><em>完整的投稿。</em></h1></div><a className="text-link dark-link" href="#home">返回公开站 ↗</a></div>
@@ -188,7 +213,7 @@ export function SubmissionPage() {
           {step === 1 && linkField("mainWork", "主体作品链接")}
           {step === 2 && linkField("makingOf", "制作解析链接")}
           {step === 3 && <>{linkField("guideVideo", "导览视频链接（VR / MR / 实时作品必填）")}{linkField("experience", "体验链接（选填）")}</>}
-          {step >= 1 && step <= 3 && <div className="declaration-note"><p>保存链接后仍需通过预检。当前暂未开放检测与正式提交，请勿将保存草稿视为报名成功。</p></div>}
+          {step >= 1 && step <= 3 && <div className="declaration-note"><p>保存链接后可发起预检；预检结果只代表当前链接状态，不能替代组委会资格审查。</p></div>}
           {step === 4 && <><label className="field">AI 贡献比例（%）<input name="aiContributionPercent" type="number" min={80} max={100} step={1} value={draft.aiContributionPercent ?? ""} onChange={(e) => edit("aiContributionPercent", e.target.value ? Number(e.target.value) : null)} /></label><label className="field">AI 工具（用逗号分隔）<input name="aiTools" maxLength={3000} value={draft.aiTools.join(",")} onChange={(e) => edit("aiTools", e.target.value.split(","))} /></label><label className="field">AI 创作流程<textarea name="aiWorkflow" maxLength={3000} value={draft.aiWorkflow} onChange={(e) => edit("aiWorkflow", e.target.value)} /></label><label className="field">人工贡献说明<textarea name="humanContribution" maxLength={3000} value={draft.humanContribution} onChange={(e) => edit("humanContribution", e.target.value)} /></label><label className="check-row"><input name="rightsConfirmed" type="checkbox" checked={draft.rightsConfirmed} onChange={(e) => edit("rightsConfirmed", e.target.checked)} />我确认已取得作品素材、声音和肖像的必要授权。</label><label className="check-row"><input name="aiLabelConfirmed" type="checkbox" checked={draft.aiLabelConfirmed} onChange={(e) => edit("aiLabelConfirmed", e.target.checked)} />我确认已按要求标识 AI 生成内容。</label></>}
           {step === 5 && <><div className="review-list"><div className="review-row"><span>作品名称</span><span>{draft.title || "待填写"}</span></div><div className="review-row"><span>投稿方向</span><span>{directions[draft.direction]}</span></div>{(["mainWork", "makingOf", "guideVideo"] as const).map((purpose) => <div className="review-row" key={purpose}><span>{{ mainWork: "主体作品", makingOf: "制作解析", guideVideo: "导览视频" }[purpose]}</span><span>{links[purpose] ? "已保存，待检测" : "待填写 / 依作品形式要求"}</span></div>)}</div>{readOnly ? <p className="form-notice success">投稿已提交，回执号：{server?.receiptNo}。预检与资格审查功能将在后续迭代接入。</p> : <><p id="submit-help" className="form-notice">提交前请确认主体作品链接、版权声明和 AI 内容声明已完成。预检与资格审查功能将在后续迭代接入。</p><button className="button button-cinnabar" disabled={!server || busy} aria-describedby="submit-help" onClick={() => void submitFinal()} type="button">{busy ? "正在提交…" : "确认提交"}</button></>}</>}
         </fieldset>

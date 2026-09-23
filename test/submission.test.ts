@@ -58,6 +58,20 @@ test("media link remains pending until a worker verifies it and retries are idem
   await assert.rejects(() => service.upsertMediaLink(user, draft.id, "mainWork", "https://unapproved.example/watch/abc", '"2"', "link-key-003"), (error: unknown) => error instanceof SubmissionError && error.code === "UNSUPPORTED_PLATFORM");
 });
 
+test("link precheck never claims pass without platform metadata", async () => {
+  const repository = new InMemorySubmissionRepository();
+  const service = new SubmissionService(repository, ["www.bilibili.com"]);
+  const user = userFixture();
+  const draft = await service.createDraft(user, { title: "预检测试", direction: "frontier_tech", workForm: "animation" }, "precheck-create");
+  const saved = await service.upsertMediaLink(user, draft.id, "mainWork", "https://www.bilibili.com/video/BV1xx#tracking", '"1"', "precheck-link");
+  const result = await service.precheckMediaLink(user, draft.id, saved.link.id, new Date("2026-09-23T01:00:00.000Z"));
+  assert.equal(result.link.provider, "bilibili");
+  assert.equal(result.link.canonicalUrl, "https://www.bilibili.com/video/BV1xx");
+  assert.equal(result.link.precheckStatus, "failed");
+  assert.equal(result.link.failureCode, "METADATA_UNAVAILABLE");
+  await assert.rejects(() => service.precheckMediaLink(user, draft.id, "00000000-0000-4000-8000-000000000099"), { code: "MEDIA_LINK_NOT_FOUND" });
+});
+
 test("complete draft can be submitted once and becomes read only", async () => {
   const repository = new InMemorySubmissionRepository();
   const service = new SubmissionService(repository, ["video.example.test"]);

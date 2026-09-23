@@ -5,6 +5,7 @@ import { SubmissionError } from "./errors.js";
 import type { SubmissionRepository, SubmissionTransactionContext } from "./repository.js";
 import type { CreateDraftInput, DraftPatch, MediaLink, MediaPurpose, Submission, SubmissionDirection, SubmissionDraft, WorkForm } from "./types.js";
 import { MEDIA_PURPOSES, SUBMISSION_DIRECTIONS, WORK_FORMS } from "./types.js";
+import { inspectVideoLink } from "./precheck.js";
 
 export class SubmissionService {
   constructor(private readonly repository: SubmissionRepository, approvedVideoHosts: readonly string[] = [], private readonly auditWriter?: (event: AuditEvent) => Promise<void>) {
@@ -136,6 +137,21 @@ export class SubmissionService {
       await repository.update(updated);
       await repository.saveIdempotency({ ownerUserId: user.id, key, fingerprint, submissionId, mediaLinkId: link.id, response: updated });
       await this.audit("submission.media_link_upsert", user, updated, context, { purpose }, transactionContext);
+      return { submission: updated, link };
+    });
+  }
+
+  async precheckMediaLink(user: User, submissionId: string, linkId: string, now = new Date(), context?: SubmissionRequestContext): Promise<{ submission: Submission; link: MediaLink }> {
+    return this.repository.transaction(async (repository, transactionContext) => {
+      const submission = await getOwned(repository, user, submissionId);
+      requireEditable(submission);
+      const current = submission.mediaLinks.find((link) => link.id === linkId);
+      if (!current) throw new SubmissionError("MEDIA_LINK_NOT_FOUND", 404, "链接不存在");
+      const result = inspectVideoLink(current.originalUrl, [...this.approvedVideoHosts]);
+      const link: MediaLink = { ...current, canonicalUrl: result.canonicalUrl, provider: result.provider, precheckStatus: result.precheckStatus, failureCode: result.failureCode, precheckFindings: result.findings, checkedAt: now, expiresAt: new Date(now.getTime() + 30 * 60 * 1000) };
+      const updated = { ...submission, mediaLinks: submission.mediaLinks.map((item) => item.id === link.id ? link : item), draftRevision: submission.draftRevision + 1, updatedAt: now };
+      await repository.update(updated);
+      await this.audit("submission.media_link_precheck", user, updated, context, { purpose: link.purpose, outcome: result.precheckStatus }, transactionContext);
       return { submission: updated, link };
     });
   }

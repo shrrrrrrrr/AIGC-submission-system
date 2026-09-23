@@ -21,7 +21,7 @@ class FakeClient {
   readonly statements: string[] = [];
   async query<T extends object = object>(query: string, _values?: unknown[]): Promise<QueryResult<T>> {
     this.statements.push(query.replace(/\s+/g, " ").trim());
-    if (/RETURNING id/.test(query) && /submission_versions/.test(query)) return { rows: [{ id: "00000000-0000-4000-8000-000000000032" } as T], rowCount: 1 } as unknown as QueryResult<T>;
+    if (/submission_versions/.test(query) && (/RETURNING id/.test(query) || /SELECT id FROM submission_versions/.test(query))) return { rows: [{ id: "00000000-0000-4000-8000-000000000032" } as T], rowCount: 1 } as unknown as QueryResult<T>;
     if (/pg_advisory_xact_lock/.test(query) || /submission_idempotency_keys/.test(query) && query.startsWith("SELECT")) return { rows: [], rowCount: 0 } as unknown as QueryResult<T>;
     return { rows: [], rowCount: 1 } as unknown as QueryResult<T>;
   }
@@ -45,6 +45,37 @@ void test("PostgreSQL submission repository runs create draft in one client tran
   assert.equal(client.statements.some((statement) => statement.includes("INSERT INTO submissions")), true);
   assert.equal(client.statements.some((statement) => statement.includes("INSERT INTO submission_versions")), true);
   assert.equal(client.statements.some((statement) => statement.includes("INSERT INTO submission_idempotency_keys")), true);
+});
+
+void test("PostgreSQL draft updates preserve media link IDs referenced by idempotency", async () => {
+  const client = new FakeClient();
+  const pool = { connect: async () => client } as unknown as Pool;
+  const repository = new PostgresSubmissionRepository(pool);
+  const service = new SubmissionService(repository);
+  const submission = await service.createDraft(user, { title: "PG 链接", direction: "frontier_tech", workForm: "animation" }, "pg-media-update-01");
+  await repository.transaction(async (transaction) => transaction.update({
+    ...submission,
+    draftRevision: 2,
+    mediaLinks: [{
+      id: "00000000-0000-4000-8000-000000000033",
+      purpose: "mainWork",
+      originalUrl: "https://www.bilibili.com/video/BV1",
+      canonicalUrl: null,
+      provider: null,
+      externalVideoId: null,
+      isPubliclyAccessible: null,
+      durationSeconds: null,
+      width: null,
+      height: null,
+      precheckStatus: "pending",
+      failureCode: null,
+      precheckFindings: [],
+      checkedAt: null,
+      expiresAt: null,
+    }],
+  }));
+  assert.equal(client.statements.some((statement) => statement.startsWith("UPDATE media_links SET")), true);
+  assert.equal(client.statements.some((statement) => statement.startsWith("DELETE FROM media_links")), false);
 });
 
 void test("PostgreSQL submission audit is written on the same transaction client", async () => {

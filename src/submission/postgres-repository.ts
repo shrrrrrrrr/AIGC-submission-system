@@ -88,8 +88,18 @@ export class PostgresSubmissionRepository implements SubmissionRepository {
     const versionId = versionResult.rows[0]?.id;
     if (!versionId) throw new Error("submission version missing");
     await this.updateVersion(submission, versionId);
-    await this.db().query(`DELETE FROM media_links WHERE version_id = $1`, [versionId]);
-    for (const link of submission.mediaLinks) await this.insertMediaLink(versionId, link);
+    // Keep link IDs stable because submission_idempotency_keys references them.
+    // Updating in place preserves retry/replay records across draft saves.
+    for (const link of submission.mediaLinks) {
+      const linkResult = await this.db().query(
+        `UPDATE media_links SET purpose = $3, original_url = $4, canonical_url = $5, provider = $6, external_video_id = $7,
+           is_publicly_accessible = $8, duration_seconds = $9, width = $10, height = $11, precheck_status = $12,
+           failure_code = $13, precheck_findings = $14, checked_at = $15, expires_at = $16
+         WHERE id = $1 AND version_id = $2`,
+        [link.id, versionId, link.purpose, link.originalUrl, link.canonicalUrl, link.provider, link.externalVideoId, link.isPubliclyAccessible, link.durationSeconds, link.width, link.height, link.precheckStatus, link.failureCode, link.precheckFindings, link.checkedAt, link.expiresAt],
+      );
+      if (linkResult.rowCount === 0) await this.insertMediaLink(versionId, link);
+    }
   }
 
   async findIdempotency(ownerUserId: string, key: string): Promise<SubmissionIdempotencyRecord | null> {
