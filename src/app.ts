@@ -12,6 +12,7 @@ import { SubmissionError } from "./submission/errors.js";
 import { SubmissionService } from "./submission/service.js";
 import type { SubmissionRequestContext } from "./submission/service.js";
 import { MEDIA_PURPOSES, SUBMISSION_DIRECTIONS, SUBMISSION_STATUSES, WORK_FORMS } from "./submission/types.js";
+import type { MediaLink, Submission } from "./submission/types.js";
 
 const registerSchema = z.object({ email: z.string(), password: z.string() });
 const loginSchema = registerSchema.extend({ mfaCode: z.string().length(6).optional() });
@@ -34,6 +35,7 @@ const patchSubmissionSchema = z.object({
 }).strict();
 const mediaLinkSchema = z.object({ purpose: z.enum(MEDIA_PURPOSES), url: z.string().max(2048) }).strict();
 const adminListSchema = z.object({ limit: z.coerce.number().int().min(1).max(50).default(50), status: z.enum(SUBMISSION_STATUSES).optional() });
+const submissionListSchema = z.object({ limit: z.coerce.number().int().min(1).max(50).default(20), cursor: z.string().uuid().optional(), status: z.literal("draft").optional() });
 const adminTransitionSchema = z.object({ targetStatus: z.enum(SUBMISSION_STATUSES), expectedStatus: z.enum(SUBMISSION_STATUSES), reason: z.string().trim().min(2).max(1000) }).strict();
 const adminOpenLinkSchema = z.object({ reason: z.string().trim().min(2).max(500) }).strict();
 const PRODUCTION_SESSION_COOKIE = "__Host-chinavr-session";
@@ -274,7 +276,7 @@ export function createApp(dependencies: AppDependencies): Hono<RequestContext> {
     if (!sessionResult) return c.json(errorBody("UNAUTHENTICATED", "请先登录", requestId), 401);
     if (!dependencies.submissions) return c.json(errorBody("SUBMISSIONS_UNAVAILABLE", "投稿服务暂不可用", requestId), 503);
     try {
-      const query = z.object({ limit: z.coerce.number().int().min(1).max(50).default(20), cursor: z.string().uuid().optional(), status: z.literal("draft").optional() }).safeParse(c.req.query());
+      const query = submissionListSchema.safeParse(c.req.query());
       if (!query.success) return c.json(errorBody("INVALID_REQUEST", "分页或状态参数无效", requestId), 422);
       const items = (await dependencies.submissions.list(sessionResult.user)).filter((item) => !query.data.status || item.currentStatus === query.data.status);
       const cursorIndex = query.data.cursor ? items.findIndex((item) => item.id === query.data.cursor) : -1;
@@ -431,19 +433,19 @@ function draftEtag(revision: number): string {
   return `"${revision}"`;
 }
 
-function publicSubmission(submission: import("./submission/types.js").Submission) {
+function publicSubmission(submission: Submission) {
   return { ...submission, createdAt: submission.createdAt.toISOString(), updatedAt: submission.updatedAt.toISOString(), mediaLinks: submission.mediaLinks.map(publicMediaLink) };
 }
 
-function publicMediaLink(link: import("./submission/types.js").MediaLink) {
+function publicMediaLink(link: MediaLink) {
   return { ...link, checkedAt: link.checkedAt?.toISOString() ?? null, expiresAt: link.expiresAt?.toISOString() ?? null };
 }
 
-function adminSubmissionSummary(submission: import("./submission/types.js").Submission) {
+function adminSubmissionSummary(submission: Submission) {
   return { id: submission.id, receiptNo: submission.receiptNo, title: submission.draft.title, direction: submission.draft.direction, workForm: submission.draft.workForm, currentStatus: submission.currentStatus, currentVersionNo: submission.currentVersionNo, updatedAt: submission.updatedAt.toISOString() };
 }
 
-function adminSafeSubmission(submission: import("./submission/types.js").Submission) {
+function adminSafeSubmission(submission: Submission) {
   return { ...publicSubmission(submission), mediaLinks: submission.mediaLinks.map((link) => {
     const { originalUrl: _originalUrl, canonicalUrl: _canonicalUrl, ...safe } = publicMediaLink(link);
     return safe;

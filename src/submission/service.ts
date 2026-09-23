@@ -6,6 +6,20 @@ import type { SubmissionRepository, SubmissionTransactionContext } from "./repos
 import type { CreateDraftInput, DraftPatch, MediaLink, MediaPurpose, Submission, SubmissionDirection, SubmissionDraft, SubmissionStatus, WorkForm } from "./types.js";
 import { MEDIA_PURPOSES, SUBMISSION_DIRECTIONS, SUBMISSION_STATUSES, WORK_FORMS } from "./types.js";
 import { inspectVideoLink } from "./precheck.js";
+const ALLOWED_STATUS_TRANSITIONS: Record<SubmissionStatus, readonly SubmissionStatus[]> = {
+  draft: [],
+  checking_links: [],
+  ready: [],
+  submitted: ["qualification_pass", "needs_supplement", "invalid", "withdrawn"],
+  needs_supplement: ["submitted", "invalid"],
+  qualification_pass: ["reviewing", "invalid"],
+  reviewing: ["shortlisted", "not_selected", "invalid"],
+  shortlisted: ["winner", "not_selected"],
+  winner: [],
+  not_selected: [],
+  withdrawn: [],
+  invalid: [],
+};
 
 export class SubmissionService {
   constructor(private readonly repository: SubmissionRepository, approvedVideoHosts: readonly string[] = [], private readonly auditWriter?: (event: AuditEvent) => Promise<void>) {
@@ -244,12 +258,7 @@ function validateTransition(targetStatus: SubmissionStatus, expectedStatus: Subm
   if (reason.trim().length < 2 || reason.trim().length > 1000) {
     throw new SubmissionError("VALIDATION_ERROR", 422, "处理原因需为 2—1,000 个字符", [{ field: "reason", reason: "REASON_LENGTH" }]);
   }
-  const allowed: Record<SubmissionStatus, readonly SubmissionStatus[]> = {
-    draft: [], checking_links: [], ready: [], submitted: ["qualification_pass", "needs_supplement", "invalid", "withdrawn"],
-    needs_supplement: ["submitted", "invalid"], qualification_pass: ["reviewing", "invalid"], reviewing: ["shortlisted", "not_selected", "invalid"],
-    shortlisted: ["winner", "not_selected"], winner: [], not_selected: [], withdrawn: [], invalid: [],
-  };
-  if (!allowed[expectedStatus].includes(targetStatus)) throw new SubmissionError("INVALID_TRANSITION", 409, "当前状态不允许执行该流转");
+  if (!ALLOWED_STATUS_TRANSITIONS[expectedStatus].includes(targetStatus)) throw new SubmissionError("INVALID_TRANSITION", 409, "当前状态不允许执行该流转");
 }
 
 function requireParticipant(user: User): void {
