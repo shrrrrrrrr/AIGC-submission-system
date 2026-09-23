@@ -39,6 +39,21 @@ export class DirectMailMailer implements Mailer {
     await this.send(email, "ChinaVR 2026 密码重置", "请打开以下链接重置密码：", url.toString());
   }
 
+  async sendConnectivityTest(email: string): Promise<void> {
+    validateEmail(email, "收件人邮箱");
+    await this.submit(new SingleSendMailRequest({
+      accountName: this.options.fromAddress,
+      addressType: 1,
+      replyToAddress: true,
+      toAddress: email,
+      subject: "ChinaVR 2026 DirectMail 连通性测试",
+      textBody: "这是本机 DirectMail 连通性测试邮件，不包含可用的邮箱验证链接。",
+      htmlBody: "<p>这是本机 DirectMail 连通性测试邮件，不包含可用的邮箱验证链接。</p>",
+      clickTrace: "0",
+      ...(this.options.tagName === undefined ? {} : { tagName: this.options.tagName }),
+    }));
+  }
+
   private async send(email: string, subject: string, description: string, link: string): Promise<void> {
     validateEmail(email, "收件人邮箱");
     const safeLink = escapeHtml(link);
@@ -53,6 +68,10 @@ export class DirectMailMailer implements Mailer {
       clickTrace: "0",
       ...(this.options.tagName === undefined ? {} : { tagName: this.options.tagName }),
     });
+    await this.submit(request);
+  }
+
+  private async submit(request: SingleSendMailRequest): Promise<void> {
     try {
       await this.options.client.singleSendMail(request);
     } catch {

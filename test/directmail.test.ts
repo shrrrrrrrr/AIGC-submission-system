@@ -33,6 +33,12 @@ assert.equal(requests.length, 2);
 assert.match(String(requests[1]?.textBody), /\/reset-password\?token=reset-token/);
 console.log("PASS DirectMail builds the password reset link");
 
+await mailer.sendConnectivityTest("shrbuaa@qq.com");
+assert.equal(requests.length, 3);
+assert.equal(requests[2]?.subject, "ChinaVR 2026 DirectMail 连通性测试");
+assert.doesNotMatch(String(requests[2]?.textBody), /token=/);
+console.log("PASS DirectMail connectivity test does not claim to contain a usable token");
+
 const failingMailer = new DirectMailMailer({
   client: {
     async singleSendMail(): Promise<void> {

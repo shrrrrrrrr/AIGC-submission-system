@@ -18,6 +18,22 @@ const mailer = {
 }
 
 {
+  const runtime = createRuntimeDependencies({
+    env: {
+      NODE_ENV: "development",
+      MAILER_MODE: "directmail",
+      MAILER_ACCESS_KEY_ID: "test-id",
+      MAILER_ACCESS_KEY_SECRET: "test-secret",
+      MAILER_FROM_ADDRESS: "noreply@example.test",
+      APP_PUBLIC_URL: "http://localhost:3000",
+    },
+  });
+  assert.equal(runtime.mode, "memory");
+  await runtime.close();
+  console.log("PASS development runtime can opt into DirectMail while retaining in-memory storage");
+}
+
+{
   assert.throws(
     () => createRuntimeDependencies({ env: { NODE_ENV: "production", MFA_ENCRYPTION_KEY: mfaKey, APPROVED_VIDEO_PLATFORMS: "example.com", MAILER_MODE: "formal" } }),
     /DATABASE_URL/,

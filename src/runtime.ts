@@ -38,9 +38,10 @@ export function createRuntimeDependencies(options: RuntimeFactoryOptions = {}): 
     const submissionRepository = new InMemorySubmissionRepository();
     const mfa = new MfaService(repository, readMfaKey(env, false));
     const submissions = new SubmissionService(submissionRepository, approvedVideoHosts, (event) => repository.insertAuditEvent(event));
+    const mailer = env.MAILER_MODE?.trim().toLowerCase() === "directmail" ? createDirectMailMailerFromEnv(env) : developmentMailer();
     return {
       mode,
-      auth: new AuthService(repository, developmentMailer(), undefined, sessionTtlSeconds),
+      auth: new AuthService(repository, mailer, undefined, sessionTtlSeconds),
       mfa,
       submissions,
       ready: async () => undefined,
