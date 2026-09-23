@@ -3,8 +3,9 @@ import type { FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
 import { SubmissionPage } from "./SubmissionPage";
+import { AdminPage } from "./AdminPage";
 
-type Route = "home" | "login" | "register" | "submit";
+type Route = "home" | "login" | "register" | "submit" | "admin";
 type Notice = { tone: "success" | "error" | "info"; text: string };
 
 const navigation = [
@@ -57,7 +58,7 @@ function App() {
       <a className="skip-link" href="#main-content">跳到主要内容</a>
       <Header menuOpen={menuOpen} onMenuToggle={() => setMenuOpen((open) => !open)} onNavigate={navigate} />
       <main id="main-content">
-        {route === "home" ? <Home onNavigate={navigate} /> : route === "login" ? <LoginPage onNavigate={navigate} /> : route === "register" ? <RegisterPage onNavigate={navigate} /> : <SubmissionPage />}
+        {route === "home" ? <Home onNavigate={navigate} /> : route === "login" ? <LoginPage onNavigate={navigate} /> : route === "register" ? <RegisterPage onNavigate={navigate} /> : route === "admin" ? <AdminPage /> : <SubmissionPage />}
       </main>
       <Footer onNavigate={navigate} />
     </div>
@@ -66,7 +67,7 @@ function App() {
 
 function readRoute(): Route {
   const hash = window.location.hash.slice(1).split("?")[0];
-  return hash === "login" ? "login" : hash === "register" ? "register" : hash === "submit" ? "submit" : "home";
+  return hash === "login" ? "login" : hash === "register" ? "register" : hash === "submit" ? "submit" : hash === "admin" ? "admin" : "home";
 }
 
 function Header({ menuOpen, onMenuToggle, onNavigate }: { menuOpen: boolean; onMenuToggle: () => void; onNavigate: (href: string) => void }) {
@@ -162,10 +163,11 @@ function LoginPage({ onNavigate }: { onNavigate: (href: string) => void }) {
     setNotice(null);
     try {
       const response = await fetch("/api/v1/auth/login", { method: "POST", credentials: "include", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, password, ...(mfaCode ? { mfaCode } : {}) }) });
-      const body = await response.json().catch(() => ({})) as { message?: string; code?: string };
+      const body = await response.json().catch(() => ({})) as { message?: string; code?: string; user?: { roles?: string[] } };
       if (!response.ok) throw new Error(body.message || "登录暂时不可用，请稍后再试");
-      setNotice({ tone: "success", text: "登录成功，正在进入投稿工作台。" });
-      window.setTimeout(() => onNavigate("#submit"), 450);
+      const destination = body.user?.roles?.some((role) => role === "event_admin" || role === "super_admin") ? "#admin" : "#submit";
+      setNotice({ tone: "success", text: destination === "#admin" ? "登录成功，正在进入管理工作台。" : "登录成功，正在进入投稿工作台。" });
+      window.setTimeout(() => onNavigate(destination), 450);
     } catch (error) {
       setNotice({ tone: "error", text: error instanceof Error ? error.message : "登录暂时不可用，请稍后再试" });
     } finally {

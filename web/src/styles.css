@@ -274,6 +274,37 @@ button:disabled { cursor: not-allowed; opacity: 0.6; }
 .review-value { color: var(--muted); }
 .review-value b { margin-left: 15px; color: var(--cinnabar); font-size: 22px; font-weight: 400; vertical-align: -2px; }
 
+.admin-page { color: var(--ink); background: var(--paper); min-height: calc(100vh - 90px); }
+.admin-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; max-width: 1180px; margin: 0 auto 34px; }
+.admin-heading h1 { margin: 0; font-family: "Noto Serif SC", "Songti SC", Georgia, serif; font-size: clamp(38px, 5vw, 62px); font-weight: 500; letter-spacing: -0.05em; }
+.admin-heading p { max-width: 640px; margin: 16px 0 0; color: var(--muted); font-size: 14px; line-height: 1.7; }
+.admin-grid { display: grid; grid-template-columns: 310px minmax(0, 1fr); max-width: 1180px; min-height: 560px; margin: 0 auto; background: var(--warm-white); border-top: 1px solid var(--border); }
+.admin-list { border-right: 1px solid var(--border); }
+.admin-item { display: grid; gap: 7px; width: 100%; padding: 18px 20px; color: var(--ink); background: transparent; border: 0; border-bottom: 1px solid var(--border); text-align: left; cursor: pointer; }
+.admin-item:hover, .admin-item.is-active { background: #f3f1e9; }
+.admin-item.is-active { box-shadow: inset 3px 0 var(--cinnabar); }
+.admin-item .mono { color: var(--cinnabar); font-size: 10px; }
+.admin-item strong { font-size: 14px; font-weight: 700; }
+.admin-item small { color: var(--muted); font-size: 11px; }
+.admin-detail { min-width: 0; padding: 35px 42px 45px; }
+.admin-detail-top { display: flex; align-items: start; justify-content: space-between; gap: 20px; padding-bottom: 22px; border-bottom: 1px solid var(--border); }
+.admin-detail-top .mono { color: var(--cinnabar); font-size: 10px; }
+.admin-detail h2 { margin: 10px 0 0; font-family: "Noto Serif SC", "Songti SC", Georgia, serif; font-size: 32px; font-weight: 500; }
+.status-pill { padding: 7px 10px; color: var(--navy); background: #e7f4f3; font-family: "IBM Plex Mono", monospace; font-size: 10px; white-space: nowrap; }
+.admin-facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 24px 0 36px; }
+.admin-facts div { padding: 12px 0; border-bottom: 1px solid var(--border); }
+.admin-facts dt { color: var(--muted); font-size: 11px; }
+.admin-facts dd { margin: 7px 0 0; font-size: 13px; }
+.admin-detail h3 { margin: 26px 0 13px; font-size: 14px; }
+.admin-link { display: grid; gap: 5px; padding: 14px 0; border-top: 1px solid var(--border); font-size: 13px; }
+.admin-link span, .admin-link small, .muted-copy { color: var(--muted); font-size: 12px; line-height: 1.6; }
+.admin-transition { max-width: 540px; margin-top: 34px; padding-top: 20px; border-top: 1px solid var(--border); }
+.admin-transition label { display: block; margin: 13px 0 7px; font-size: 12px; font-weight: 700; }
+.admin-transition select, .admin-transition textarea { display: block; width: 100%; padding: 11px 12px; color: var(--ink); background: var(--warm-white); border: 1px solid var(--border); font: inherit; }
+.admin-transition textarea { min-height: 100px; resize: vertical; }
+.admin-transition .button { margin-top: 15px; }
+.optional { color: var(--muted); font-size: 11px; font-weight: 400; }
+
 @media (max-width: 1100px) {
   .primary-nav { gap: 15px; }
   .hero-grid { grid-template-columns: 1fr 1fr; }
@@ -307,6 +338,8 @@ button:disabled { cursor: not-allowed; opacity: 0.6; }
   .notice-panel { padding: 54px 8vw; }
   .timeline-line { margin-top: 55px; }
   .auth-layout { grid-template-columns: 1fr; max-width: 560px; }
+  .admin-grid { grid-template-columns: 240px minmax(0, 1fr); }
+  .admin-detail { padding-right: 28px; padding-left: 28px; }
   .auth-intro { display: grid; grid-template-columns: 1fr auto; gap: 0 30px; align-items: end; }
   .auth-intro .section-kicker, .auth-intro p { grid-column: 1 / -1; }
   .auth-intro h1 { font-size: 55px; }
@@ -346,7 +379,13 @@ button:disabled { cursor: not-allowed; opacity: 0.6; }
   .site-footer p { margin-top: 24px; }
   .footer-links { margin-top: 25px; }
   .site-footer small { display: block; margin-top: 35px; }
-  .auth-page, .submission-page { padding-top: 112px; }
+  .auth-page, .submission-page, .admin-page { padding-top: 112px; }
+  .admin-heading { display: block; }
+  .admin-heading .button { margin-top: 20px; }
+  .admin-grid { display: block; }
+  .admin-list { border-right: 0; border-bottom: 1px solid var(--border); }
+  .admin-detail { padding: 27px 20px 34px; }
+  .admin-facts { grid-template-columns: 1fr 1fr; }
   .auth-layout { gap: 44px; }
   .auth-intro { display: block; }
   .auth-intro h1 { font-size: 50px; }
