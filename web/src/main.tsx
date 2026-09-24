@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, useState } from "react";
+import { StrictMode, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
@@ -6,22 +6,37 @@ import "./styles/home.css";
 import "./styles/auth.css";
 import "./styles/submission.css";
 import "./styles/admin.css";
+import "./styles/society.css";
 import { SubmissionPage } from "./SubmissionPage";
 import { AdminPage } from "./AdminPage";
+import { SocietyPage } from "./SocietyPage";
+import { api, ApiError } from "./api";
 
-type Route = "home" | "login" | "register" | "submit" | "admin";
+type Route = "home" | "login" | "register" | "submit" | "admin" | "society";
 type Notice = { tone: "success" | "error" | "info"; text: string };
+type PublicUser = { id: string; email: string; roles: string[] };
 
 const navigation = [["#requirements", "作品要求"]] as const;
 
 function App() {
   const [route, setRoute] = useState<Route>(readRoute);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<PublicUser | null>(null);
 
   useEffect(() => {
     const onHashChange = () => setRoute(readRoute());
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
+
+  useEffect(() => {
+    const abort = new AbortController();
+    void api<{ user: PublicUser }>("/me", { signal: abort.signal })
+      .then(({ data }) => setCurrentUser(data.user))
+      .catch((error: unknown) => {
+        if (!(error instanceof ApiError && error.status === 401) && !abort.signal.aborted) console.error("读取登录状态失败", error);
+      });
+    return () => abort.abort();
   }, []);
 
   useEffect(() => {
@@ -37,28 +52,52 @@ function App() {
     window.location.hash = href.replace("#", "");
   };
 
+  const logout = async () => {
+    await api("/auth/logout", { method: "POST" });
+    setCurrentUser(null);
+    navigate("#login");
+  };
+
   return <div className={`site-shell route-${route}`}>
     <a className="skip-link" href="#main-content">跳到主要内容</a>
-    <Header menuOpen={menuOpen} onMenuToggle={() => setMenuOpen((open) => !open)} onNavigate={navigate} />
-    <main id="main-content">{route === "home" ? <Home onNavigate={navigate} /> : route === "login" ? <LoginPage onNavigate={navigate} /> : route === "register" ? <RegisterPage onNavigate={navigate} /> : route === "admin" ? <AdminPage /> : <SubmissionPage />}</main>
+    <Header currentUser={currentUser} menuOpen={menuOpen} onMenuToggle={() => setMenuOpen((open) => !open)} onNavigate={navigate} onLogout={logout} />
+    <main id="main-content">{route === "home" ? <Home onNavigate={navigate} /> : route === "login" ? <LoginPage onNavigate={navigate} onAuthenticated={setCurrentUser} /> : route === "register" ? <RegisterPage onNavigate={navigate} /> : route === "admin" ? <AdminPage /> : route === "society" ? <SocietyPage onNavigate={navigate} /> : <SubmissionPage />}</main>
     <Footer onNavigate={navigate} />
   </div>;
 }
 
 function readRoute(): Route {
   const hash = window.location.hash.slice(1).split("?")[0];
-  return hash === "login" ? "login" : hash === "register" ? "register" : hash === "submit" ? "submit" : hash === "admin" ? "admin" : "home";
+  return hash === "login" ? "login" : hash === "register" ? "register" : hash === "submit" ? "submit" : hash === "admin" ? "admin" : hash === "society" ? "society" : "home";
 }
 
-function Header({ menuOpen, onMenuToggle, onNavigate }: { menuOpen: boolean; onMenuToggle: () => void; onNavigate: (href: string) => void }) {
-  const localPreview = (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost') && window.location.port === '5173';
+function Header({ currentUser, menuOpen, onMenuToggle, onNavigate, onLogout }: { currentUser: PublicUser | null; menuOpen: boolean; onMenuToggle: () => void; onNavigate: (href: string) => void; onLogout: () => Promise<void> }) {
+  const localPreview = (window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost") && window.location.port === "5173";
+  const accountRef = useRef<HTMLDivElement>(null);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
+  const accountDestination = currentUser?.roles.some((role) => role === "event_admin" || role === "super_admin") ? "#admin" : "#submit";
+  const initial = currentUser?.email.trim().charAt(0).toUpperCase() || "U";
+  useEffect(() => {
+    if (!accountMenuOpen) return;
+    const closeOnOutside = (event: PointerEvent) => { if (!accountRef.current?.contains(event.target as Node)) setAccountMenuOpen(false); };
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") setAccountMenuOpen(false); };
+    document.addEventListener("pointerdown", closeOnOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => { document.removeEventListener("pointerdown", closeOnOutside); document.removeEventListener("keydown", closeOnEscape); };
+  }, [accountMenuOpen]);
+  const handleLogout = async () => {
+    setLogoutError("");
+    try { await onLogout(); setAccountMenuOpen(false); }
+    catch (error) { setLogoutError(error instanceof Error ? error.message : "退出登录失败，请重试"); }
+  };
   return <header className="site-header event-header">
     <div className="header-inner">
-      <a className="brand event-brand" href="#home" aria-label="ChinaVR 2026 AI、VR影像单元首页" onClick={() => onNavigate("#home")}><img src="/assets/chinavr-2026-logo.png" alt="ChinaVR 2026 标志" /></a>
+      <a className="brand event-brand" href="#home" aria-label="ChinaVR 2026 生成式VR影像单元首页" onClick={() => onNavigate("#home")}><img src="/assets/chinavr-2026-wordmark.png" alt="ChinaVR 2026 标志" /></a>
       <button className="menu-toggle" type="button" aria-label={menuOpen ? "关闭导航" : "打开导航"} aria-expanded={menuOpen} aria-controls="primary-nav" onClick={onMenuToggle}><span aria-hidden="true">{menuOpen ? "×" : "☰"}</span></button>
       <nav id="primary-nav" className={`primary-nav ${menuOpen ? "is-open" : ""}`} aria-label="主导航">
         {navigation.map(([href, label]) => <a key={href} href={href} onClick={() => onNavigate(href)}>{label}</a>)}
-        <a className="header-login" href="#login" onClick={() => onNavigate("#login")}>登录</a>
+        {currentUser ? <div className="header-account-shell" ref={accountRef}><button className="header-account" type="button" aria-label={"已登录：" + currentUser.email + "，点击进入工作台，右键打开账户菜单"} aria-haspopup="menu" aria-expanded={accountMenuOpen} title={currentUser.email} onClick={() => { setAccountMenuOpen(false); onNavigate(accountDestination); }} onContextMenu={(event) => { event.preventDefault(); setAccountMenuOpen(true); }}><span aria-hidden="true">{initial}</span></button>{accountMenuOpen && <div className="header-context-menu" role="menu"><span className="header-account-email">{currentUser.email}</span><button type="button" role="menuitem" onClick={() => void handleLogout()}>退出登录</button>{logoutError && <span className="header-account-error" role="alert">{logoutError}</span>}</div>}</div> : <a className="header-login" href="#login" onClick={() => onNavigate("#login")}>登录</a>}
         {localPreview && <>
           <a className="header-preview-link" href="#submit" onClick={() => onNavigate("#submit")}>投稿工作台</a>
           <a className="header-preview-link" href="#admin" onClick={() => onNavigate("#admin")}>管理员工作台</a>
@@ -77,9 +116,9 @@ function Home({ onNavigate }: { onNavigate: (href: string) => void }) {
       <div className="event-hero-simple-inner">
         <div className="event-hero-content">
           <p className="eyebrow event-eyebrow"><span className="eyebrow-dot" /> 中国计算机学会 · ChinaVR 2026</p>
-          <h1 id="event-title">AI、VR<br /><em>影像单元投稿</em></h1>
+          <h1 id="event-title">生成式VR<br /><em>影像单元投稿</em></h1>
           <p className="event-hero-lede">第26届中国虚拟现实大会作品征集<br/>欢迎电影人、视觉艺术家、数字媒体团队、技术开发者与学生投稿!</p>
-          <div className="hero-actions"><a className="button button-cinnabar" href="#submit" onClick={() => onNavigate("#submit")}>进入投稿入口 <span aria-hidden="true">↗</span></a><a className="text-link light-link" href="#requirements" onClick={() => onNavigate("#requirements")}>查看作品要求 ↓</a></div>
+          <div className="hero-actions"><a className="button button-cinnabar" href="#submit" onClick={() => onNavigate("#submit")}>进入投稿入口 <span aria-hidden="true">↗</span></a><a className="text-link light-link" href="#requirements" onClick={() => onNavigate("#requirements")}>查看作品要求 ↓</a><a className="text-link light-link society-hero-link" href="#society" onClick={() => onNavigate("#society")}>学会相关人员 ↗</a></div>
         </div>
       </div>
     </section>
@@ -89,11 +128,11 @@ function Home({ onNavigate }: { onNavigate: (href: string) => void }) {
     <section className="event-section event-requirements" id="requirements" aria-labelledby="requirements-title"><div className="event-section-index">01 / WORK REQUIREMENTS</div><div className="event-heading"><h2 id="requirements-title">提交前，<em>请确认您的作品：</em></h2><p>具体细则以组委会正式通知为准</p></div><div className="requirements-grid"><div><h3>作品与链接</h3><ul><li>主体作品时长 2—10 分钟，另附不超过 1 分钟的制作解析</li><li>主体作品和制作解析须发布在公开视频平台</li><li>主体作品使用 3 秒统一电子剧场片头，并包含片尾</li><li>接受叙事片、纪实片、纪录片、科幻片、实验影像、动画、实时影像、科研可视化及 3D VR/MR 等形式</li></ul></div><div><h3>技术与权利</h3><ul><li>技术规格不低于 1920×1080，建议 16:9 横屏</li><li>鼓励AIGC与传统视频制作方式结合</li><li>AI 参与核心视听内容原则上不低于 80%</li><li>音乐、字体、模型、数据与肖像等素材须拥有合法使用权</li></ul></div><div><h3>投稿事项</h3><ul><li>公开视频平台：抖音、B 站、小红书、视频号</li><li>不得删除、遮挡或修改模板中的赛事标识</li><li>提交创作构想、工具、工作流程与人工贡献说明</li><li>学生参赛者须注明学校、专业及指导教师信息</li><li>其他文件格式和命名规则以组委会后续通知为准</li></ul></div></div></section>
 
 
-    <section className="event-cta" aria-labelledby="cta-title"><img src="/assets/chinavr-2026-logo.png" alt="ChinaVR 2026 标志" /><div><span className="event-section-index">HERE WE GO!</span><h2 id="cta-title">你的作品<br /><em>一定能够闪耀！</em></h2></div><a className="button button-cinnabar" href="#submit" onClick={() => onNavigate("#submit")}>开始投稿 <span aria-hidden="true">↗</span></a></section>
+    <section className="event-cta" aria-labelledby="cta-title"><img src="/assets/chinavr-2026-wordmark.png" alt="ChinaVR 2026 标志" /><div><span className="event-section-index">HERE WE GO!</span><h2 id="cta-title">你的作品<br /><em>一定能够闪耀！</em></h2></div><div className="event-cta-action"><img className="event-cta-watermark" src="/assets/ai-vr-hero-mark.png" alt="" aria-hidden="true" draggable={false} decoding="async" width={1280} height={1280} /><a className="button button-cinnabar" href="#submit" onClick={() => onNavigate("#submit")}>开始投稿 <span aria-hidden="true">↗</span></a></div></section>
   </>;
 }
 
-function LoginPage({ onNavigate }: { onNavigate: (href: string) => void }) {
+function LoginPage({ onNavigate, onAuthenticated }: { onNavigate: (href: string) => void; onAuthenticated: (user: PublicUser) => void }) {
   const localPreview = (window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost") && window.location.port === "5173";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -107,9 +146,11 @@ function LoginPage({ onNavigate }: { onNavigate: (href: string) => void }) {
     setNotice(null);
     try {
       const response = await fetch("/api/v1/auth/login", { method: "POST", credentials: "include", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, password, ...(mfaCode ? { mfaCode } : {}) }) });
-      const body = await response.json().catch(() => ({})) as { message?: string; code?: string; user?: { roles?: string[] } };
+      const body = await response.json().catch(() => ({})) as { message?: string; code?: string; user?: PublicUser };
       if (!response.ok) throw new Error(body.message || "登录暂时不可用，请稍后再试");
-      const destination = body.user?.roles?.some((role) => role === "event_admin" || role === "super_admin") ? "#admin" : "#submit";
+      if (!body.user) throw new Error("登录响应缺少账户信息，请重试");
+      onAuthenticated(body.user);
+      const destination = body.user.roles.some((role) => role === "event_admin" || role === "super_admin") ? "#admin" : "#submit";
       setNotice({ tone: "success", text: destination === "#admin" ? "登录成功，正在进入管理工作台。" : "登录成功，正在进入投稿工作台。" });
       window.setTimeout(() => onNavigate(destination), 450);
     } catch (error) {
@@ -152,7 +193,7 @@ function RegisterPage({ onNavigate }: { onNavigate: (href: string) => void }) {
   return <section className="auth-page section-pad" aria-labelledby="register-title"><div className="auth-layout"><div className="auth-intro"><div className="section-kicker inverse"><span>ACCOUNT / 02</span><span>CREATE ACCESS</span></div><h1 id="register-title">创建账号<br /><em>新境启航</em></h1><p>注册后通过邮箱验证账号，再登录投稿工作台保存作品信息与公开视频链接。</p><a className="text-link light-link" href="#home" onClick={() => onNavigate("#home")}>返回公开站 <span aria-hidden="true">↗</span></a></div><form className="auth-card" onSubmit={submit}><div className="card-topline"><span>CHINAVR 2026</span><span className="mono">AUTH / 02</span></div><label htmlFor="register-email">邮箱地址<span className="required">*</span></label><input id="register-email" name="email" type="email" autoComplete="email" spellCheck={false} value={email} onChange={(event) => setEmail(event.target.value)} required placeholder="name@example.com" /><label htmlFor="register-password">设置密码<span className="required">*</span></label><input id="register-password" name="password" type="password" autoComplete="new-password" spellCheck={false} value={password} onChange={(event) => setPassword(event.target.value)} required minLength={6} placeholder="至少 6 个字符" /><label htmlFor="register-password-confirm">确认密码<span className="required">*</span></label><input id="register-password-confirm" name="passwordConfirmation" type="password" autoComplete="new-password" spellCheck={false} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required minLength={6} placeholder="再次输入密码" />{notice && <div className={`form-notice ${notice.tone}`} role={notice.tone === "error" ? "alert" : "status"}>{notice.text}</div>}<button className="button button-cinnabar button-full" type="submit" disabled={submitting}>{submitting ? "正在创建…" : "创建账号"} <span aria-hidden="true">↗</span></button><div className="form-meta"><a href="#login" onClick={(event) => { event.preventDefault(); onNavigate("#login"); }}>已有账号？登录</a></div><p className="auth-footnote">我们不会在页面上显示或透露账号是否已存在。</p></form></div></section>;
 }
 
-function Footer({ onNavigate }: { onNavigate: (href: string) => void }) { return <footer className="site-footer event-footer"><div className="footer-brand"><img src="/assets/chinavr-2026-logo.png" alt="ChinaVR 2026 标志" /><span>AI、VR 影像单元</span></div><p>AI、VR 影像单元<br /><span>第26届中国虚拟现实大会 · 中国广州</span></p><div className="footer-links"><a href="#requirements" onClick={() => onNavigate("#requirements")}>作品要求</a><a href="#login" onClick={() => onNavigate("#login")}>登录</a></div><small>© 2026 ChinaVR · 具体细则以组委会正式通知为准</small></footer>; }
+function Footer({ onNavigate }: { onNavigate: (href: string) => void }) { return <footer className="site-footer event-footer"><div className="footer-brand"><img src="/assets/chinavr-2026-wordmark.png" alt="ChinaVR 2026 标志" /><span>生成式VR影像单元</span></div><p>生成式VR影像单元<br /><span>第26届中国虚拟现实大会 · 中国广州</span></p><div className="footer-links"><a href="#requirements" onClick={() => onNavigate("#requirements")}>作品要求</a><a href="#society" onClick={() => onNavigate("#society")}>学会相关人员</a><a href="#login" onClick={() => onNavigate("#login")}>登录</a></div><small>© 2026 ChinaVR · 备案号：京ICP备2026064264号 · 具体细则以组委会正式通知为准</small></footer>; }
 
 function BrandMark() { return <span className="brand-mark" aria-hidden="true"><i /><i /><i /><i /></span>; }
 

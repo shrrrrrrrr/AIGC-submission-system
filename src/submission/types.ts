@@ -22,6 +22,31 @@ export type MediaPurpose = (typeof MEDIA_PURPOSES)[number];
 export const PRECHECK_STATUSES = ["pending", "checking", "passed", "failed"] as const;
 export type PrecheckStatus = (typeof PRECHECK_STATUSES)[number];
 
+export type PrecheckFinding = { code: string; field: string; message: string };
+
+/**
+ * Normalize JSONB values from older releases before they reach callers.
+ * Historic rows may contain a serialized array or a wrapped `{ findings }`
+ * object, while the current domain contract is always an array.
+ */
+export function normalizePrecheckFindings(value: unknown): PrecheckFinding[] {
+  if (typeof value === "string") {
+    try { return normalizePrecheckFindings(JSON.parse(value)); } catch { return []; }
+  }
+  if (Array.isArray(value)) {
+    return value.filter((item): item is PrecheckFinding => {
+      if (!item || typeof item !== "object") return false;
+      const finding = item as Record<string, unknown>;
+      return typeof finding.code === "string" && typeof finding.field === "string" && typeof finding.message === "string";
+    });
+  }
+  if (value && typeof value === "object") {
+    const findings = (value as Record<string, unknown>).findings;
+    if (findings !== undefined) return normalizePrecheckFindings(findings);
+  }
+  return [];
+}
+
 export const SUBMISSION_STATUSES = ["draft", "checking_links", "ready", "submitted", "needs_supplement", "qualification_pass", "reviewing", "shortlisted", "winner", "not_selected", "withdrawn", "invalid"] as const;
 export type SubmissionStatus = (typeof SUBMISSION_STATUSES)[number];
 
@@ -53,7 +78,7 @@ export type MediaLink = {
   height: number | null;
   precheckStatus: PrecheckStatus;
   failureCode: string | null;
-  precheckFindings: Array<{ code: string; field: string; message: string }>;
+  precheckFindings: PrecheckFinding[];
   checkedAt: Date | null;
   expiresAt: Date | null;
 };

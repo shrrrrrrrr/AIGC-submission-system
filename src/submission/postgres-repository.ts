@@ -1,6 +1,7 @@
 import type { Pool, PoolClient, QueryResultRow } from "pg";
 import type { SubmissionRepository, SubmissionIdempotencyRecord, SubmissionTransactionContext } from "./repository.js";
 import type { AuditEvent } from "../auth/types.js";
+import { normalizePrecheckFindings } from "./types.js";
 import type { MediaLink, Submission, SubmissionDraft, SubmissionStatus } from "./types.js";
 import { withTransaction } from "../auth/postgres-repository.js";
 
@@ -169,7 +170,7 @@ export class PostgresSubmissionRepository implements SubmissionRepository {
 const submissionSelect = `SELECT s.id, s.receipt_no, s.owner_user_id, s.current_status, s.current_version_no, s.draft_revision, s.created_at, s.updated_at, sv.id AS version_id, sv.title, sv.direction, sv.work_form, sv.synopsis, sv.creative_statement, sv.ai_contribution_percent, sv.ai_tools, sv.ai_workflow, sv.human_contribution, sv.rights_confirmed, sv.ai_label_confirmed, sv.template_confirmed FROM submissions s JOIN submission_versions sv ON sv.submission_id = s.id AND sv.version_no = s.current_version_no`;
 
 function mapMediaLink(row: MediaLinkRow): MediaLink {
-  return { id: row.id, purpose: row.purpose, originalUrl: row.original_url, canonicalUrl: row.canonical_url, provider: row.provider, externalVideoId: row.external_video_id, isPubliclyAccessible: row.is_publicly_accessible, durationSeconds: row.duration_seconds, width: row.width, height: row.height, precheckStatus: row.precheck_status, failureCode: row.failure_code, precheckFindings: row.precheck_findings ?? [], checkedAt: row.checked_at, expiresAt: row.expires_at };
+  return { id: row.id, purpose: row.purpose, originalUrl: row.original_url, canonicalUrl: row.canonical_url, provider: row.provider, externalVideoId: row.external_video_id, isPubliclyAccessible: row.is_publicly_accessible, durationSeconds: row.duration_seconds, width: row.width, height: row.height, precheckStatus: row.precheck_status, failureCode: row.failure_code, precheckFindings: normalizePrecheckFindings(row.precheck_findings), checkedAt: row.checked_at, expiresAt: row.expires_at };
 }
 
 function deserializeSubmission(input: Submission): Submission {

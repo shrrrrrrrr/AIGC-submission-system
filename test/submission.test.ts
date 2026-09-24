@@ -3,6 +3,7 @@ import { createApp } from "../src/app.js";
 import { InMemoryAuthRepository } from "../src/auth/repository.js";
 import { AuthService } from "../src/auth/service.js";
 import type { User } from "../src/auth/types.js";
+import { normalizePrecheckFindings } from "../src/submission/types.js";
 import type { MediaLink, SubmissionDraft } from "../src/submission/types.js";
 import { getSubmissionIssues, requiresGuideVideo } from "../src/submission/validation.js";
 import { expandApprovedVideoHosts, normalizeVideoShareInput, VideoUrlError } from "../src/submission/video-url.js";
@@ -15,6 +16,14 @@ const cases: Array<[string, () => Promise<void>]> = [];
 function test(name: string, fn: () => Promise<void>): void {
   cases.push([name, fn]);
 }
+
+test("precheck findings normalize legacy JSON shapes without breaking admin rendering", async () => {
+  const finding = { code: "UNSUPPORTED_PLATFORM", field: "url", message: "平台不在白名单中" };
+  assert.deepEqual(normalizePrecheckFindings([finding]), [finding]);
+  assert.deepEqual(normalizePrecheckFindings(JSON.stringify([finding])), [finding]);
+  assert.deepEqual(normalizePrecheckFindings({ findings: [finding] }), [finding]);
+  assert.deepEqual(normalizePrecheckFindings({ unexpected: true }), []);
+});
 
 function userFixture(): User {
   return {
