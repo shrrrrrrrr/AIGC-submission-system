@@ -7,9 +7,11 @@ import "./styles/auth.css";
 import "./styles/submission.css";
 import "./styles/admin.css";
 import "./styles/society.css";
+import "./styles/news.css";
 import { SubmissionPage } from "./SubmissionPage";
 import { AdminPage } from "./AdminPage";
 import { SocietyPage } from "./SocietyPage";
+import { NewsMarquee } from "./NewsMarquee";
 import { api, ApiError } from "./api";
 
 type Route = "home" | "login" | "register" | "submit" | "admin" | "society";
@@ -60,7 +62,7 @@ function App() {
 
   return <div className={`site-shell route-${route}`}>
     <a className="skip-link" href="#main-content">跳到主要内容</a>
-    <Header currentUser={currentUser} menuOpen={menuOpen} onMenuToggle={() => setMenuOpen((open) => !open)} onNavigate={navigate} onLogout={logout} />
+    <Header currentUser={currentUser} menuOpen={menuOpen} onMenuToggle={() => setMenuOpen((open) => !open)} onNavigate={navigate} onLogout={logout} hideBrand={route === "society"} />
     <main id="main-content">{route === "home" ? <Home onNavigate={navigate} /> : route === "login" ? <LoginPage onNavigate={navigate} onAuthenticated={setCurrentUser} /> : route === "register" ? <RegisterPage onNavigate={navigate} /> : route === "admin" ? <AdminPage /> : route === "society" ? <SocietyPage onNavigate={navigate} /> : <SubmissionPage />}</main>
     <Footer onNavigate={navigate} />
   </div>;
@@ -71,7 +73,7 @@ function readRoute(): Route {
   return hash === "login" ? "login" : hash === "register" ? "register" : hash === "submit" ? "submit" : hash === "admin" ? "admin" : hash === "society" ? "society" : "home";
 }
 
-function Header({ currentUser, menuOpen, onMenuToggle, onNavigate, onLogout }: { currentUser: PublicUser | null; menuOpen: boolean; onMenuToggle: () => void; onNavigate: (href: string) => void; onLogout: () => Promise<void> }) {
+function Header({ currentUser, menuOpen, onMenuToggle, onNavigate, onLogout, hideBrand }: { currentUser: PublicUser | null; menuOpen: boolean; onMenuToggle: () => void; onNavigate: (href: string) => void; onLogout: () => Promise<void>; hideBrand: boolean }) {
   const localPreview = (window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost") && window.location.port === "5173";
   const accountRef = useRef<HTMLDivElement>(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
@@ -93,7 +95,7 @@ function Header({ currentUser, menuOpen, onMenuToggle, onNavigate, onLogout }: {
   };
   return <header className="site-header event-header">
     <div className="header-inner">
-      <a className="brand event-brand" href="#home" aria-label="ChinaVR 2026 生成式VR影像单元首页" onClick={() => onNavigate("#home")}><img src="/assets/chinavr-2026-wordmark.png" alt="ChinaVR 2026 标志" /></a>
+      {!hideBrand && <a className="brand event-brand" href="#home" aria-label="ChinaVR 2026 生成式VR影像单元首页" onClick={() => onNavigate("#home")}><img src="/assets/chinavr-2026-wordmark.png" alt="ChinaVR 2026 标志" /></a>}
       <button className="menu-toggle" type="button" aria-label={menuOpen ? "关闭导航" : "打开导航"} aria-expanded={menuOpen} aria-controls="primary-nav" onClick={onMenuToggle}><span aria-hidden="true">{menuOpen ? "×" : "☰"}</span></button>
       <nav id="primary-nav" className={`primary-nav ${menuOpen ? "is-open" : ""}`} aria-label="主导航">
         {navigation.map(([href, label]) => <a key={href} href={href} onClick={() => onNavigate(href)}>{label}</a>)}
@@ -122,6 +124,8 @@ function Home({ onNavigate }: { onNavigate: (href: string) => void }) {
         </div>
       </div>
     </section>
+
+    <NewsMarquee />
 
     <section className="event-facts" aria-label="大会关键信息"><div><span>大会时间</span><strong>2026.11.06—11.08</strong><small>中国 · 广州</small></div><div><span>投稿截止</span><strong>2026.10.12(23:59:59)</strong><small>请在截止日前完成提交</small></div><div><span>作品主题</span><strong>AI+VR：前沿科技、传统文化、科幻作品</strong><small>从二维影像到沉浸世界，都可以成为影像单元</small></div></section>
 
