@@ -9,17 +9,52 @@ export const DEFAULT_VIDEO_HOSTS = [
   "douyin.com",
   "www.douyin.com",
   "v.douyin.com",
+  "m.douyin.com",
   "iesdouyin.com",
+  "www.iesdouyin.com",
   "bilibili.com",
   "www.bilibili.com",
+  "m.bilibili.com",
+  "space.bilibili.com",
   "b23.tv",
   "xiaohongshu.com",
   "www.xiaohongshu.com",
+  "m.xiaohongshu.com",
   "xhslink.com",
+  "www.xhslink.com",
   "weixin.qq.com",
   "www.weixin.qq.com",
   "channels.weixin.qq.com",
 ] as const;
+
+/**
+ * Curated first-party aliases for the platforms enabled by the event.
+ *
+ * This is intentionally an explicit map rather than a generic suffix match:
+ * an arbitrary subdomain must not become trusted just because its parent
+ * domain appears in the allow-list. The production environment may keep
+ * concise root-domain entries; these known share/mobile aliases are
+ * expanded at the validation boundary.
+ */
+const VIDEO_HOST_ALIASES: Readonly<Record<string, readonly string[]>> = {
+  "douyin.com": ["douyin.com", "www.douyin.com", "v.douyin.com", "m.douyin.com"],
+  "iesdouyin.com": ["iesdouyin.com", "www.iesdouyin.com"],
+  "bilibili.com": ["bilibili.com", "www.bilibili.com", "m.bilibili.com", "space.bilibili.com"],
+  "b23.tv": ["b23.tv"],
+  "xiaohongshu.com": ["xiaohongshu.com", "www.xiaohongshu.com", "m.xiaohongshu.com"],
+  "xhslink.com": ["xhslink.com", "www.xhslink.com"],
+  "weixin.qq.com": ["weixin.qq.com", "www.weixin.qq.com", "channels.weixin.qq.com"],
+};
+
+/** Expand configured platform roots into the curated first-party aliases. */
+export function expandApprovedVideoHosts(approvedHosts: Iterable<string>): string[] {
+  const configured = new Set(Array.from(approvedHosts, (host) => host.trim().toLowerCase()).filter(Boolean));
+  const expanded = new Set(configured);
+  for (const host of configured) {
+    for (const alias of VIDEO_HOST_ALIASES[host] ?? []) expanded.add(alias);
+  }
+  return [...expanded];
+}
 
 export type VideoUrlErrorCode =
   | "VALIDATION_ERROR"
@@ -114,9 +149,7 @@ export function normalizeVideoShareInput(
     throw new VideoUrlError("UNSAFE_URL", "视频链接主机必须是受支持的公网域名");
   }
 
-  const approved = new Set(
-    Array.from(approvedHosts ?? [], (host) => host.trim().toLowerCase()).filter(Boolean),
-  );
+  const approved = new Set(expandApprovedVideoHosts(approvedHosts ?? []));
   if (!approved.has(hostname)) {
     throw new VideoUrlError("UNSUPPORTED_PLATFORM", "该视频平台未获批准");
   }

@@ -5,7 +5,8 @@ import { AuthService } from "../src/auth/service.js";
 import type { User } from "../src/auth/types.js";
 import type { MediaLink, SubmissionDraft } from "../src/submission/types.js";
 import { getSubmissionIssues, requiresGuideVideo } from "../src/submission/validation.js";
-import { normalizeVideoShareInput, VideoUrlError } from "../src/submission/video-url.js";
+import { expandApprovedVideoHosts, normalizeVideoShareInput, VideoUrlError } from "../src/submission/video-url.js";
+import { inspectVideoLink } from "../src/submission/precheck.js";
 import { SubmissionError } from "../src/submission/errors.js";
 import { InMemorySubmissionRepository } from "../src/submission/repository.js";
 import { SubmissionService } from "../src/submission/service.js";
@@ -260,6 +261,18 @@ test("video share links normalize safely for all approved platforms", async () =
   assert.throws(() => normalizeVideoShareInput("https://user:pass@www.douyin.com/a"), (error: unknown) => error instanceof VideoUrlError && error.code === "UNSAFE_URL");
   assert.throws(() => normalizeVideoShareInput("https://evil.example/a"), (error: unknown) => error instanceof VideoUrlError && error.code === "UNSUPPORTED_PLATFORM");
   assert.throws(() => normalizeVideoShareInput("https://www.douyin.com/a", []), (error: unknown) => error instanceof VideoUrlError && error.code === "UNSUPPORTED_PLATFORM");
+});
+
+test("configured platform roots accept only curated first-party share aliases", async () => {
+  assert.equal(normalizeVideoShareInput("https://v.douyin.com/UcmnbF_4Evs/", ["douyin.com"]), "https://v.douyin.com/UcmnbF_4Evs/");
+  assert.equal(normalizeVideoShareInput("https://m.bilibili.com/video/BV1", ["bilibili.com"]), "https://m.bilibili.com/video/BV1");
+  assert.equal(normalizeVideoShareInput("https://www.xhslink.com/a/abc", ["xhslink.com"]), "https://www.xhslink.com/a/abc");
+  assert.equal(normalizeVideoShareInput("https://channels.weixin.qq.com/a", ["weixin.qq.com"]), "https://channels.weixin.qq.com/a");
+  const precheck = inspectVideoLink("https://v.douyin.com/UcmnbF_4Evs/", ["douyin.com"]);
+  assert.equal(precheck.provider, "douyin");
+  assert.equal(precheck.failureCode, "METADATA_UNAVAILABLE");
+  assert.deepEqual(expandApprovedVideoHosts(["douyin.com", "douyin.com"]), ["douyin.com", "www.douyin.com", "v.douyin.com", "m.douyin.com"]);
+  assert.throws(() => normalizeVideoShareInput("https://evil.douyin.com/video/1", ["douyin.com"]), (error: unknown) => error instanceof VideoUrlError && error.code === "UNSUPPORTED_PLATFORM");
 });
 for (const [name, run] of cases) {
   await run();

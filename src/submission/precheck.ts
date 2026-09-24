@@ -1,4 +1,5 @@
 import { isIP } from "node:net";
+import { expandApprovedVideoHosts } from "./video-url.js";
 
 export type LinkPrecheckFinding = { code: string; field: string; message: string };
 export type LinkPrecheckResult = {
@@ -18,7 +19,7 @@ export function inspectVideoLink(originalUrl: string, approvedHosts: readonly st
   try { url = new URL(originalUrl); }
   catch { return failed("URL_INVALID", [{ code: "URL_INVALID", field: "url", message: "链接不是有效的 URL" }]); }
   const hostname = url.hostname.toLowerCase();
-  const hosts = new Set(approvedHosts.map((host) => host.trim().toLowerCase()).filter(Boolean));
+  const hosts = new Set(expandApprovedVideoHosts(approvedHosts));
   if (url.protocol !== "https:" || url.username || url.password || (url.port && url.port !== "443") || isIP(hostname) !== 0 || hostname === "localhost" || hostname.endsWith(".local") || hostname.endsWith(".internal")) {
     return failed("UNSAFE_URL", [{ code: "UNSAFE_URL", field: "url", message: "链接必须使用 HTTPS 且指向公网视频平台" }]);
   }
