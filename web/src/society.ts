@@ -27,7 +27,7 @@ export type SocietySection = {
 export const societyHero = {
   banner: {
     src: "/assets/chinavr-2026-committee-banner.png",
-    alt: "ChinaVR 2026 第二十六届中国虚拟现实大会 · 生成式 VR 影像单元投稿作品",
+    alt: "ChinaVR 2026 第二十六届中国虚拟现实大会 · 生成式 VR 影像单元",
     width: 1672,
     height: 941,
   },
@@ -52,9 +52,9 @@ export const societySections: SocietySection[] = [
     layout: "cards",
     title: "生成式VR影像单元副主席",
     people: [
-      { name: "姜涵", affiliation: "北京航空航天大学", photo: "/assets/people/jiang-han.jpg" },
-      { name: "邵晴", affiliation: "苏州魏唐文化传播有限责任公司", photo: "/assets/people/shao-qing.png" },
       { name: "王泽宇", affiliation: "香港科技大学（广州）", photo: "/assets/people/wang-zeyu.jpg" },
+      { name: "邵晴", affiliation: "VR导演/新媒体艺术家", photo: "/assets/people/shao-qing.png" },
+      { name: "姜涵", affiliation: "北京航空航天大学", photo: "/assets/people/jiang-han.jpg" },
     ],
   },
   {
@@ -119,13 +119,13 @@ export const societySections: SocietySection[] = [
   },
 ];
 
-export const societySortNote = "注：以上名单按姓氏拼音排序";
+export const societySortNote = "注：名单按姓氏拼音排序";
 
 export const societyActions = {
   title: "欢迎参与生成式 VR 影像单元",
   intro: "前往大会主页了解完整赛事信息与最新通知，或直接进入投稿系统提交作品",
   buttons: [
-    { label: "VR 峰会首页", href: "https://ccf.org.cn/chinavr2026", external: true },
+    { label: "ChinaVR2026大会首页", href: "https://ccf.org.cn/chinavr2026", external: true },
     { label: "我要投稿", href: "#home", external: false },
   ],
 };

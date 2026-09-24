@@ -11,3 +11,8 @@
 .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }
 .submission-actions { display: flex; justify-content: end; gap: 13px; margin-top: 44px; padding-top: 22px; border-top: 1px solid var(--border); }
 @media (max-width: 620px) { .submission-page { padding-top: 112px; } .submission-head { display: block; margin-bottom: 35px; } .submission-head h1 { font-size: 52px; } .submission-layout { display: block; } .step-rail { padding: 17px 0 0; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--border); white-space: nowrap; } .submission-card { padding: 26px 20px 30px; } .submission-card-head { display: block; } .field-grid { display: block; } .submission-actions { justify-content: stretch; } }
+.submission-template { display: flex; align-items: center; justify-content: space-between; gap: 24px; max-width: 1180px; margin: -20px auto 34px; padding: 22px 26px; background: #fff; border: 1px solid var(--border); border-left: 4px solid var(--cinnabar); }
+.submission-template strong { color: var(--ink); font-size: 17px; }
+.submission-template p { margin: 7px 0 0; color: var(--muted); font-size: 14px; }
+.submission-template .button { flex: none; }
+@media (max-width: 620px) { .submission-template { align-items: stretch; flex-direction: column; gap: 16px; margin: -12px auto 24px; padding: 20px; } }

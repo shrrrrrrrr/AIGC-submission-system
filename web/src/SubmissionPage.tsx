@@ -226,6 +226,7 @@ export function SubmissionPage() {
 
   return <section className="submission-page section-pad" aria-labelledby="submission-title">
     <div className="submission-head"><div><div className="section-kicker"><span>SUBMISSION</span><span>作品草稿</span></div><h1 id="submission-title">倾怀以待<br /><em>静候华章</em></h1></div><a className="text-link dark-link" href="#home">返回公开站 ↗</a></div>
+    <div className="submission-template"><div><strong>片头素材</strong><p>下载这个素材，放到你的作品首页</p></div><a className="button button-cinnabar" href="/assets/chinavr-2026-opening-template.psd" download="ChinaVR-生成式VR影像单元-片头模板.psd">下载素材（PSD） <span aria-hidden="true">↓</span></a></div>
     {loading ? <p role="status">正在读取账户与草稿…</p> : unauthenticated ? <div className="submission-card"><h2>登录后开始投稿</h2><p>草稿保存在你的账号下，可以在下次登录后继续填写</p><a className="button button-cinnabar" href="#login">登录账号 ↗</a></div> : <div className="submission-layout">
       <aside className="step-rail" aria-label="投稿步骤"><div className="rail-status">✎ 草稿 · 未提交</div>{steps.map((label, index) => <button className={`step-button ${step === index ? "is-active" : ""}`} aria-current={step === index ? "step" : undefined} disabled={busy} onClick={() => setStep(index)} key={label}><span className="mono">0{index + 1}</span>{label}</button>)}</aside>
       <form className="submission-card" onSubmit={save}>
