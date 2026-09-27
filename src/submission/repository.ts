@@ -21,6 +21,8 @@ export interface SubmissionRepository {
   findByReceiptNo(receiptNo: string): Promise<Submission | null>;
   listByOwner(ownerUserId: string): Promise<Submission[]>;
   listAll(): Promise<Submission[]>;
+  /** Serialize formal-submit quota checks for one account. */
+  lockSubmissionQuota(ownerUserId: string): Promise<void>;
   update(submission: Submission): Promise<void>;
   findIdempotency(ownerUserId: string, key: string): Promise<SubmissionIdempotencyRecord | null>;
   saveIdempotency(record: SubmissionIdempotencyRecord): Promise<void>;
@@ -73,6 +75,10 @@ export class InMemorySubmissionRepository implements SubmissionRepository {
 
   async listAll(): Promise<Submission[]> {
     return [...this.submissions.values()].sort((left, right) => right.updatedAt.getTime() - left.updatedAt.getTime()).map(cloneSubmission);
+  }
+
+  async lockSubmissionQuota(_ownerUserId: string): Promise<void> {
+    // `transaction` is already serialized for the in-memory preview.
   }
 
   async update(submission: Submission): Promise<void> {

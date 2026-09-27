@@ -14,6 +14,7 @@ type SubmissionRow = QueryResultRow & {
   draft_revision: number;
   created_at: Date;
   updated_at: Date;
+  submitted_at: Date | null;
   version_id: string;
   title: string;
   direction: SubmissionDraft["direction"];
@@ -83,6 +84,10 @@ export class PostgresSubmissionRepository implements SubmissionRepository {
     return Promise.all(result.rows.map((row) => this.hydrate(row)));
   }
 
+  async lockSubmissionQuota(ownerUserId: string): Promise<void> {
+    await this.db().query(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [`submission-quota:${ownerUserId}`]);
+  }
+
   async update(submission: Submission): Promise<void> {
     const result = await this.db().query(
       `UPDATE submissions SET current_status = $2, current_version_no = $3, draft_revision = $4, updated_at = $5
@@ -141,9 +146,9 @@ export class PostgresSubmissionRepository implements SubmissionRepository {
 
   private async updateVersion(submission: Submission, versionId: string): Promise<void> {
     await this.db().query(
-      `UPDATE submission_versions SET title = $2, direction = $3, work_form = $4, synopsis = $5, creative_statement = $6, ai_contribution_percent = $7, ai_tools = $8, ai_workflow = $9, human_contribution = $10, rights_confirmed = $11, ai_label_confirmed = $12, template_confirmed = $13
+      `UPDATE submission_versions SET title = $2, direction = $3, work_form = $4, synopsis = $5, creative_statement = $6, ai_contribution_percent = $7, ai_tools = $8, ai_workflow = $9, human_contribution = $10, rights_confirmed = $11, ai_label_confirmed = $12, template_confirmed = $13, submitted_at = $14
        WHERE id = $1`,
-      [versionId, submission.draft.title, submission.draft.direction, submission.draft.workForm, submission.draft.synopsis, submission.draft.creativeStatement, submission.draft.aiContributionPercent, JSON.stringify(submission.draft.aiTools), submission.draft.aiWorkflow, submission.draft.humanContribution, submission.draft.rightsConfirmed, submission.draft.aiLabelConfirmed, submission.draft.templateConfirmed],
+      [versionId, submission.draft.title, submission.draft.direction, submission.draft.workForm, submission.draft.synopsis, submission.draft.creativeStatement, submission.draft.aiContributionPercent, JSON.stringify(submission.draft.aiTools), submission.draft.aiWorkflow, submission.draft.humanContribution, submission.draft.rightsConfirmed, submission.draft.aiLabelConfirmed, submission.draft.templateConfirmed, submission.submittedAt],
     );
   }
 
@@ -160,21 +165,21 @@ export class PostgresSubmissionRepository implements SubmissionRepository {
     return {
       id: row.id, receiptNo: row.receipt_no, ownerUserId: row.owner_user_id, currentStatus: row.current_status, currentVersionNo: row.current_version_no, draftRevision: row.draft_revision,
       draft: { title: row.title, direction: row.direction, workForm: row.work_form, synopsis: row.synopsis, creativeStatement: row.creative_statement, aiContributionPercent: row.ai_contribution_percent, aiTools: row.ai_tools ?? [], aiWorkflow: row.ai_workflow, humanContribution: row.human_contribution, rightsConfirmed: row.rights_confirmed, aiLabelConfirmed: row.ai_label_confirmed, templateConfirmed: row.template_confirmed },
-      mediaLinks: mediaResult.rows.map(mapMediaLink), createdAt: row.created_at, updatedAt: row.updated_at,
+      mediaLinks: mediaResult.rows.map(mapMediaLink), submittedAt: row.submitted_at, createdAt: row.created_at, updatedAt: row.updated_at,
     };
   }
 
   private db(): Pool | PoolClient { return this.client ?? this.pool; }
 }
 
-const submissionSelect = `SELECT s.id, s.receipt_no, s.owner_user_id, s.current_status, s.current_version_no, s.draft_revision, s.created_at, s.updated_at, sv.id AS version_id, sv.title, sv.direction, sv.work_form, sv.synopsis, sv.creative_statement, sv.ai_contribution_percent, sv.ai_tools, sv.ai_workflow, sv.human_contribution, sv.rights_confirmed, sv.ai_label_confirmed, sv.template_confirmed FROM submissions s JOIN submission_versions sv ON sv.submission_id = s.id AND sv.version_no = s.current_version_no`;
+const submissionSelect = `SELECT s.id, s.receipt_no, s.owner_user_id, s.current_status, s.current_version_no, s.draft_revision, s.created_at, s.updated_at, sv.submitted_at, sv.id AS version_id, sv.title, sv.direction, sv.work_form, sv.synopsis, sv.creative_statement, sv.ai_contribution_percent, sv.ai_tools, sv.ai_workflow, sv.human_contribution, sv.rights_confirmed, sv.ai_label_confirmed, sv.template_confirmed FROM submissions s JOIN submission_versions sv ON sv.submission_id = s.id AND sv.version_no = s.current_version_no`;
 
 function mapMediaLink(row: MediaLinkRow): MediaLink {
   return { id: row.id, purpose: row.purpose, originalUrl: row.original_url, canonicalUrl: row.canonical_url, provider: row.provider, externalVideoId: row.external_video_id, isPubliclyAccessible: row.is_publicly_accessible, durationSeconds: row.duration_seconds, width: row.width, height: row.height, precheckStatus: row.precheck_status, failureCode: row.failure_code, precheckFindings: normalizePrecheckFindings(row.precheck_findings), checkedAt: row.checked_at, expiresAt: row.expires_at };
 }
 
 function deserializeSubmission(input: Submission): Submission {
-  return { ...input, createdAt: new Date(input.createdAt), updatedAt: new Date(input.updatedAt), mediaLinks: input.mediaLinks.map((link) => ({ ...link, checkedAt: link.checkedAt ? new Date(link.checkedAt) : null, expiresAt: link.expiresAt ? new Date(link.expiresAt) : null })) };
+  return { ...input, submittedAt: input.submittedAt ? new Date(input.submittedAt) : null, createdAt: new Date(input.createdAt), updatedAt: new Date(input.updatedAt), mediaLinks: input.mediaLinks.map((link) => ({ ...link, checkedAt: link.checkedAt ? new Date(link.checkedAt) : null, expiresAt: link.expiresAt ? new Date(link.expiresAt) : null })) };
 }
 
 async function insertAuditEvent(client: PoolClient, event: AuditEvent): Promise<void> {

@@ -63,6 +63,7 @@ export const societySections: SocietySection[] = [
     layout: "roster",
     title: "指导委员会",
     people: [
+      { name: "陈宝权", affiliation: "北京大学" },
       { name: "陈志伟", affiliation: "禄宝文化传媒公司" },
       { name: "李智渊", affiliation: "延边大学" },
       { name: "刘偲", affiliation: "北京航空航天大学" },

@@ -48,6 +48,7 @@ export function SubmissionPage() {
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const [reload, setReload] = useState(0);
+  const [quota, setQuota] = useState<{ submittedCount: number; maximum: number } | null>(null);
   const idempotency = useRef(new Map<string, string>());
   const errorRef = useRef<HTMLDivElement>(null);
 
@@ -61,6 +62,8 @@ export function SubmissionPage() {
       try {
         const { data: session } = await api<{ user: { roles: string[] } }>("/me", { signal: abort.signal });
         if (!session.user.roles.includes("participant")) throw new Error("当前账号没有参赛投稿权限");
+        const quotaResponse = await api<{ submittedCount: number; maximum: number }>("/submissions/quota", { signal: abort.signal });
+        setQuota(quotaResponse.data);
         let id = new URLSearchParams(window.location.hash.split("?")[1]).get("id");
         if (!id) {
           const { data } = await api<{ items: Array<{ id: string }> }>("/submissions?status=draft&limit=1", { signal: abort.signal });
@@ -168,12 +171,15 @@ export function SubmissionPage() {
       requestAnimationFrame(() => errorRef.current?.focus());
       return;
     }
+    if (quota && quota.submittedCount >= quota.maximum) { setError("您已达到 3 次投稿上限，不能继续提交。"); return; }
+    if (!window.confirm("确认提交这件作品吗？提交后将计入投稿次数，且不能再修改当前版本。")) return;
     busyRef.current = true;
     setBusy(true);
     setError("");
     try {
       const { data } = await api("/submissions/" + server.id + "/submit", { method: "POST", headers: { "If-Match": "\"" + server.draftRevision + "\"" } });
       setServer((data as SavedResponse).submission);
+      setQuota((current) => current ? { ...current, submittedCount: current.submittedCount + 1 } : current);
       setReadOnly(true);
       setDirty(false);
     } catch (failure) {
@@ -232,6 +238,7 @@ export function SubmissionPage() {
       <form className="submission-card" onSubmit={save}>
         <div className="submission-card-head"><div><span className="mono">STEP 0{step + 1} / 06</span><h2>{steps[step]}</h2></div><span className="save-status" role="status">{status}</span></div>
         {server && <p className="field-help">草稿编号：{server.receiptNo} · 当前为第 {server.currentVersionNo} 版</p>}
+        {quota && <p className="field-help">本账号已正式提交 {quota.submittedCount} / {quota.maximum} 件作品</p>}
         {error && <div className="form-notice error" role="alert" tabIndex={-1} ref={errorRef}>{error}<br /><button className="text-button" type="button" disabled={busy} onClick={() => { if (!dirty || window.confirm("重新读取会替换本页未保存的内容，是否读取服务器草稿？")) setReload((value) => value + 1); }}>重新读取服务器草稿</button></div>}
         <fieldset disabled={busy || readOnly} className="draft-fields">
           {step === 0 && <><p className="step-lead">请确定作品方向与形式。简介和说明可先保存未完成内容</p><div className="field-grid">
@@ -244,7 +251,7 @@ export function SubmissionPage() {
           {step === 3 && <>{linkField("guideVideo", "导览视频链接" + (requiresGuideVideo(draft.workForm) ? "（当前作品形式必填）" : "（选填）"))}{linkField("experience", "体验链接（选填）")}</>}
           {step >= 1 && step <= 3 && <div className="declaration-note"><p>保存链接后可发起预检；预检结果只代表当前链接状态，不能替代组委会资格审查。</p></div>}
           {step === 4 && <><label className="field">AI 贡献比例（%）<span className="required"> *</span><input name="aiContributionPercent" type="number" min={80} max={100} step={1} value={draft.aiContributionPercent ?? ""} onChange={(e) => edit("aiContributionPercent", e.target.value ? Number(e.target.value) : null)} /></label><label className="field">AI 工具（用逗号分隔）<span className="required"> *</span><input name="aiTools" maxLength={3000} value={draft.aiTools.join(",")} onChange={(e) => edit("aiTools", e.target.value.split(","))} /></label><label className="field">AI 创作流程<span className="required"> *</span><textarea name="aiWorkflow" maxLength={3000} value={draft.aiWorkflow} onChange={(e) => edit("aiWorkflow", e.target.value)} /></label><label className="field">人工贡献说明<span className="required"> *</span><textarea name="humanContribution" maxLength={3000} value={draft.humanContribution} onChange={(e) => edit("humanContribution", e.target.value)} /></label><label className="check-row"><input name="rightsConfirmed" type="checkbox" checked={draft.rightsConfirmed} onChange={(e) => edit("rightsConfirmed", e.target.checked)} /><span className="required" aria-hidden="true"> *</span>我确认已取得作品素材、声音和肖像的必要授权。</label><label className="check-row"><input name="aiLabelConfirmed" type="checkbox" checked={draft.aiLabelConfirmed} onChange={(e) => edit("aiLabelConfirmed", e.target.checked)} /><span className="required" aria-hidden="true"> *</span>我确认已按要求标识 AI 生成内容。</label></>}
-          {step === 5 && <><div className="review-list"><div className="review-row"><span>作品名称</span><span>{draft.title || "待填写"}</span></div><div className="review-row"><span>投稿方向</span><span>{directions[draft.direction]}</span></div>{(["mainWork", "makingOf", "guideVideo", "experience"] as const).map((purpose) => <div className="review-row" key={purpose}><span>{{ mainWork: "主体作品", makingOf: "制作解析", guideVideo: "导览视频", experience: "体验链接" }[purpose]}</span><span>{links[purpose] ? "已保存，待检测" : "待填写 / 依作品形式要求"}</span></div>)}</div>{readOnly ? <p className="form-notice success">投稿已提交，回执号：{server?.receiptNo}。预检与资格审查功能将在后续迭代接入。</p> : <><p id="submit-help" className="form-notice">提交前请完成所有标有“必填”的字段和链接；体验链接为选填。链接格式会先进行安全校验，公开性、时长和分辨率由后续预检与资格审查确认。</p><button className="button button-cinnabar" disabled={!server || busy} aria-describedby="submit-help" onClick={() => void submitFinal()} type="button">{busy ? "正在提交…" : "确认提交"}</button></>}</>}
+          {step === 5 && <><div className="review-list"><div className="review-row"><span>作品名称</span><span>{draft.title || "待填写"}</span></div><div className="review-row"><span>投稿方向</span><span>{directions[draft.direction]}</span></div>{(["mainWork", "makingOf", "guideVideo", "experience"] as const).map((purpose) => <div className="review-row" key={purpose}><span>{{ mainWork: "主体作品", makingOf: "制作解析", guideVideo: "导览视频", experience: "体验链接" }[purpose]}</span><span>{links[purpose] ? "已保存，待检测" : "待填写 / 依作品形式要求"}</span></div>)}</div>{readOnly ? <p className="form-notice success">投稿已提交，回执号：{server?.receiptNo}。预检与资格审查功能将在后续迭代接入。</p> : <><p id="submit-help" className="form-notice">提交前请完成所有标有“必填”的字段和链接；体验链接为选填。链接格式会先进行安全校验，公开性、时长和分辨率由后续预检与资格审查确认。</p><button className="button button-cinnabar" disabled={!server || busy || (quota !== null && quota.submittedCount >= quota.maximum)} aria-describedby="submit-help" onClick={() => void submitFinal()} type="button">{busy ? "正在提交…" : quota && quota.submittedCount >= quota.maximum ? "已达到投稿上限" : "确认提交"}</button></>}</>}
         </fieldset>
         {!readOnly && <div className="submission-actions"><button className="button button-cinnabar" type="submit" disabled={busy}>{busy ? "正在保存…" : "保存草稿"}</button>{step < 5 && <button className="button button-outline" type="button" disabled={busy} onClick={() => setStep(step + 1)}>下一步：{steps[step + 1]} →</button>}</div>}
       </form>

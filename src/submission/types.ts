@@ -92,6 +92,8 @@ export type Submission = {
   draftRevision: number;
   draft: SubmissionDraft;
   mediaLinks: MediaLink[];
+  /** 第一次正式提交的时间；草稿阶段为 null，补充材料不会改变该时间。 */
+  submittedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };

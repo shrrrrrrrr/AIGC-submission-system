@@ -44,7 +44,9 @@ function App() {
   useEffect(() => {
     if (route === "home" && window.location.hash && document.getElementById(window.location.hash.slice(1))) {
       window.requestAnimationFrame(() => document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ behavior: "smooth", block: "start" }));
-    } else if (route !== "home") {
+    } else if (route === "home") {
+      window.scrollTo(0, 0);
+    } else {
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   }, [route]);
@@ -129,7 +131,7 @@ function Home({ onNavigate }: { onNavigate: (href: string) => void }) {
 
     <section className="event-facts" aria-label="大会关键信息"><div><span>大会时间</span><strong>2026.11.06—11.08</strong><small>中国 · 广州</small></div><div><span>投稿截止</span><strong>2026.10.12(23:59:59)</strong><small>请在截止日前完成提交</small></div><div><span>作品主题</span><strong>AI+VR：前沿科技、传统文化、科幻作品</strong><small>从二维影像到沉浸世界，都可以成为影像单元</small></div></section>
 
-    <section className="event-section event-requirements" id="requirements" aria-labelledby="requirements-title"><div className="event-section-index">01 / WORK REQUIREMENTS</div><div className="event-heading"><h2 id="requirements-title">提交前，<em>请确认您的作品：</em></h2><p>具体细则以组委会正式通知为准</p></div><div className="requirements-grid"><div><h3>作品与链接</h3><ul><li>主体作品时长 2—10 分钟，另附不超过 1 分钟的制作解析</li><li>主体作品和制作解析须发布在公开视频平台</li><li>主体作品使用 3 秒统一电子剧场片头，并包含片尾</li><li>接受叙事片、纪实片、纪录片、科幻片、实验影像、动画、实时影像、科研可视化及 3D VR/MR 等形式</li></ul></div><div><h3>技术与权利</h3><ul><li>技术规格不低于 1920×1080，建议 16:9 横屏</li><li>鼓励AIGC与传统视频制作方式结合</li><li>AI 参与核心视听内容原则上不低于 80%</li><li>音乐、字体、模型、数据与肖像等素材须拥有合法使用权</li></ul></div><div><h3>投稿事项</h3><ul><li>公开视频平台：抖音、B 站、小红书、视频号</li><li>不得删除、遮挡或修改模板中的赛事标识</li><li>提交创作构想、工具、工作流程与人工贡献说明</li><li>学生参赛者须注明学校、专业及指导教师信息</li><li>其他文件格式和命名规则以组委会后续通知为准</li></ul></div></div></section>
+    <section className="event-section event-requirements" id="requirements" aria-labelledby="requirements-title"><div className="event-section-index">01 / WORK REQUIREMENTS</div><div className="event-heading"><h2 id="requirements-title">提交前，<em>请确认您的作品：</em></h2><p>具体细则详见 <a className="requirements-detail-link" href="https://365.kdocs.cn/l/cgNsuMmiUcAI" target="_blank" rel="noopener noreferrer">https://365.kdocs.cn/l/cgNsuMmiUcAI ↗</a></p></div><div className="requirements-grid"><div><h3>作品与链接</h3><ul><li>主体作品时长 2—10 分钟，另附不超过 1 分钟的制作解析</li><li>主体作品和制作解析须发布在公开视频平台并保持可访问</li><li>主体作品使用 3 秒统一官方片头（在投稿系统下载），并包含片尾</li><li>接受叙事片、纪实片、纪录片、科幻片、实验影像、动画、实时影像、科研可视化及 3D VR/MR 等形式</li></ul></div><div><h3>技术与权利</h3><ul><li>技术规格不低于 1920×1080，建议 16:9 横屏</li><li>鼓励AIGC与传统视频制作方式结合</li><li>AI 参与核心视听内容原则上不低于 80%</li><li>音乐、字体、模型、数据与肖像等素材须拥有合法使用权</li></ul></div><div><h3>投稿事项</h3><ul><li>公开视频平台：抖音、B 站、小红书、视频号</li><li>不得删除、遮挡或修改模板中的赛事标识</li><li>提交创作构想、工具、工作流程与人工贡献说明</li><li>学生参赛者须注明学校、专业及指导教师信息</li><li>其他文件格式和命名规则以组委会后续通知为准</li></ul></div></div></section>
 
 
     <section className="event-cta" aria-labelledby="cta-title"><img src="/assets/chinavr-2026-wordmark.png" alt="ChinaVR 2026 标志" /><div><span className="event-section-index">HERE WE GO!</span><h2 id="cta-title">你的作品<br /><em>一定能够闪耀！</em></h2></div><div className="event-cta-action"><img className="event-cta-watermark" src="/assets/ai-vr-hero-mark.png" alt="" aria-hidden="true" draggable={false} decoding="async" width={1280} height={1280} /><a className="button button-cinnabar" href="#submit" onClick={() => onNavigate("#submit")}>开始投稿 <span aria-hidden="true">↗</span></a></div></section>

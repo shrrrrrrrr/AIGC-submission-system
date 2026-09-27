@@ -7,6 +7,7 @@ import { MEDIA_PURPOSES, SUBMISSION_DIRECTIONS, SUBMISSION_STATUSES, WORK_FORMS 
 import { inspectVideoLink } from "./precheck.js";
 import { getSubmissionIssues } from "./validation.js";
 import { normalizeVideoShareInput, VideoUrlError } from "./video-url.js";
+const MAX_FORMAL_SUBMISSIONS_PER_ACCOUNT = 3;
 const ALLOWED_STATUS_TRANSITIONS: Record<SubmissionStatus, readonly SubmissionStatus[]> = {
   draft: [],
   checking_links: [],
@@ -65,6 +66,7 @@ export class SubmissionService {
           templateConfirmed: null,
         },
         mediaLinks: [],
+        submittedAt: null,
         createdAt: now,
         updatedAt: now,
       };
@@ -191,6 +193,13 @@ export class SubmissionService {
     return submission;
   }
 
+  async adminExport(user: User, context?: SubmissionRequestContext): Promise<Submission[]> {
+    requireAdmin(user);
+    const submissions = (await this.repository.listAll()).filter((submission) => submission.submittedAt !== null);
+    await Promise.all(submissions.map((submission) => this.audit("admin.submission.export", user, submission, context)));
+    return submissions;
+  }
+
   async adminTransition(user: User, submissionId: string, targetStatus: SubmissionStatus, reason: string, expectedStatus: SubmissionStatus, now = new Date(), context?: SubmissionRequestContext): Promise<Submission> {
     return this.repository.transaction(async (repository, transactionContext) => {
       requireAdmin(user);
@@ -206,6 +215,14 @@ export class SubmissionService {
   }
 
   async adminOpenMediaLink(user: User, submissionId: string, linkId: string, reason: string, now = new Date(), context?: SubmissionRequestContext): Promise<string> {
+    return this.adminAccessVerifiedMediaLink("admin.media_link.open", user, submissionId, linkId, reason, now, context, true);
+  }
+
+  async adminCopyMediaLink(user: User, submissionId: string, linkId: string, reason: string, now = new Date(), context?: SubmissionRequestContext): Promise<string> {
+    return this.adminAccessVerifiedMediaLink("admin.media_link.copy", user, submissionId, linkId, reason, now, context, false);
+  }
+
+  private async adminAccessVerifiedMediaLink(action: string, user: User, submissionId: string, linkId: string, reason: string, now = new Date(), context?: SubmissionRequestContext, requireVerified = true): Promise<string> {
     return this.repository.transaction(async (repository, transactionContext) => {
       requireAdmin(user);
       if (reason.trim().length < 2 || reason.trim().length > 500) throw new SubmissionError("VALIDATION_ERROR", 422, "打开原因需为 2—500 个字符", [{ field: "reason", reason: "REASON_LENGTH" }]);
@@ -213,9 +230,9 @@ export class SubmissionService {
       if (!submission) throw new SubmissionError("SUBMISSION_NOT_FOUND", 404, "投稿不存在");
       const link = submission.mediaLinks.find((item) => item.id === linkId);
       if (!link) throw new SubmissionError("MEDIA_LINK_NOT_FOUND", 404, "链接不存在");
-      if (link.precheckStatus !== "passed" || !link.canonicalUrl || !link.expiresAt || link.expiresAt <= now) throw new SubmissionError("LINK_NOT_VERIFIED", 409, "链接尚未通过有效预检，暂不能打开");
-      await this.audit("admin.media_link.open", user, submission, context, { purpose: link.purpose, reason: reason.trim() }, transactionContext);
-      return link.canonicalUrl;
+      if (requireVerified && (link.precheckStatus !== "passed" || !link.canonicalUrl || !link.expiresAt || link.expiresAt <= now)) throw new SubmissionError("LINK_NOT_VERIFIED", 409, "链接尚未通过有效预检，暂不能打开");
+      await this.audit(action, user, submission, context, { purpose: link.purpose, reason: reason.trim() }, transactionContext);
+      return requireVerified ? link.canonicalUrl! : link.originalUrl;
     });
   }
 
@@ -224,6 +241,11 @@ export class SubmissionService {
       const submission = await getOwned(repository, user, submissionId);
       requireEditable(submission);
       assertRevision(submission.draftRevision, ifMatch);
+      await repository.lockSubmissionQuota(user.id);
+      const submittedCount = (await repository.listByOwner(user.id)).filter((item) => item.submittedAt !== null).length;
+      if (submittedCount >= MAX_FORMAL_SUBMISSIONS_PER_ACCOUNT) {
+        throw new SubmissionError("SUBMISSION_LIMIT_REACHED", 409, "每个账号最多正式提交 3 件作品");
+      }
       const links = Object.fromEntries(submission.mediaLinks.map((link) => [link.purpose, link.originalUrl])) as Partial<Record<MediaPurpose, string>>;
       const issues = getSubmissionIssues(submission.draft, links);
       if (issues.length > 0) {
@@ -233,11 +255,17 @@ export class SubmissionService {
           message: issue.message,
         })));
       }
-      const updated = { ...submission, currentStatus: "submitted" as const, draftRevision: submission.draftRevision + 1, updatedAt: now };
+      const updated = { ...submission, currentStatus: "submitted" as const, submittedAt: submission.submittedAt ?? now, draftRevision: submission.draftRevision + 1, updatedAt: now };
       await repository.update(updated);
       await this.audit("submission.submit", user, updated, context, undefined, transactionContext);
       return updated;
     });
+  }
+
+  async getSubmissionQuota(user: User): Promise<{ submittedCount: number; maximum: number }> {
+    requireParticipant(user);
+    const submittedCount = (await this.repository.listByOwner(user.id)).filter((item) => item.submittedAt !== null).length;
+    return { submittedCount, maximum: MAX_FORMAL_SUBMISSIONS_PER_ACCOUNT };
   }
 
   private async audit(action: string, user: User, submission: Submission, context?: SubmissionRequestContext, metadata?: Record<string, string>, transactionContext?: SubmissionTransactionContext): Promise<void> {
