@@ -1,0 +1,106 @@
+{
+  "formatVersion": 1,
+  "defaultAsset": "galaxy-a",
+  "assets": [
+    {
+      "assetId": "galaxy-a",
+      "displayName": "Galaxy A",
+      "directory": "galaxies/galaxy-a",
+      "preset": "/presets/galaxy-a-approved.json",
+      "originalFilename": "source.png",
+      "source": {
+        "file": "source.png",
+        "width": 501,
+        "height": 750,
+        "aspect": 0.668,
+        "sha256": "8ecb9cc83e31164360c4dd155da90d0ab80584d200a49cdba412465c0755fbb0"
+      },
+      "pointCounts": {
+        "stars": 86322,
+        "nebula": 105000,
+        "foreground": 7000,
+        "total": 198322
+      }
+    },
+    {
+      "assetId": "galaxy-b",
+      "displayName": "Galaxy B",
+      "directory": "galaxies/galaxy-b",
+      "preset": "/presets/galaxy-b-default.json",
+      "originalFilename": "be533beb70825c8a6fbf7792efc34558.png",
+      "source": {
+        "file": "source.png",
+        "width": 500,
+        "height": 639,
+        "aspect": 0.7824726134585289,
+        "sha256": "b9a98c9b7ebddc6230a4780bbadedc9580465a10b33555edbb36e5dd0677bf9a"
+      },
+      "pointCounts": {
+        "stars": 66089,
+        "nebula": 80000,
+        "foreground": 5000,
+        "total": 151089
+      }
+    },
+    {
+      "assetId": "galaxy-c",
+      "displayName": "Galaxy C",
+      "directory": "galaxies/galaxy-c",
+      "preset": "/presets/galaxy-c-default.json",
+      "originalFilename": "cb1cc9a1a9d6e1ecc503381c7f5dd9f8.png",
+      "source": {
+        "file": "source.png",
+        "width": 500,
+        "height": 722,
+        "aspect": 0.6925207756232687,
+        "sha256": "6546e9b8e115fa67c34c70806623b4013f279e0c10faac75ed47d14e80f20455"
+      },
+      "pointCounts": {
+        "stars": 87689,
+        "nebula": 112000,
+        "foreground": 6500,
+        "total": 206189
+      }
+    },
+    {
+      "assetId": "galaxy-d",
+      "displayName": "Galaxy D",
+      "directory": "galaxies/galaxy-d",
+      "preset": "/presets/galaxy-d-default.json",
+      "originalFilename": "18ff371ebb28f291141b1908f2a1f2af.png",
+      "source": {
+        "file": "source.png",
+        "width": 500,
+        "height": 750,
+        "aspect": 0.6666666666666666,
+        "sha256": "f589df60ea1c2e74b80db30acb5fa8ff91347f37e4a2d68c0eee7d2ddd22a202"
+      },
+      "pointCounts": {
+        "stars": 92847,
+        "nebula": 105000,
+        "foreground": 6000,
+        "total": 203847
+      }
+    },
+    {
+      "assetId": "galaxy-e",
+      "displayName": "Galaxy E",
+      "directory": "galaxies/galaxy-e",
+      "preset": "/presets/galaxy-e-default.json",
+      "originalFilename": "codex-clipboard-1bf86629-d4cf-4b79-aa2a-579e3a8f9c91.png",
+      "source": {
+        "file": "source.png",
+        "width": 500,
+        "height": 750,
+        "aspect": 0.6666666666666666,
+        "sha256": "362f380b8449c76184e9aa53169b744e98488ba330efc432484d42411d313914"
+      },
+      "pointCounts": {
+        "stars": 85257,
+        "nebula": 105000,
+        "foreground": 7000,
+        "total": 197257
+      }
+    }
+  ]
+}
