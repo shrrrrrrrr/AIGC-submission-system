@@ -8,10 +8,12 @@ import "./styles/submission.css";
 import "./styles/admin.css";
 import "./styles/society.css";
 import "./styles/news.css";
+import "./styles/galaxy-home.css";
+import "./styles/galaxy-home-overrides.css";
 import { SubmissionPage } from "./SubmissionPage";
 import { AdminPage } from "./AdminPage";
 import { SocietyPage } from "./SocietyPage";
-import { NewsMarquee } from "./NewsMarquee";
+import { GalaxyHome } from "./GalaxyHome";
 import { api, ApiError } from "./api";
 
 type Route = "home" | "login" | "register" | "submit" | "admin" | "society";
@@ -44,7 +46,9 @@ function App() {
   useEffect(() => {
     if (route === "home" && window.location.hash && document.getElementById(window.location.hash.slice(1))) {
       window.requestAnimationFrame(() => document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ behavior: "smooth", block: "start" }));
-    } else if (route !== "home") {
+    } else if (route === "home") {
+      window.scrollTo(0, 0);
+    } else {
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   }, [route]);
@@ -62,7 +66,7 @@ function App() {
 
   return <div className={`site-shell route-${route}`}>
     <a className="skip-link" href="#main-content">跳到主要内容</a>
-    <Header currentUser={currentUser} menuOpen={menuOpen} onMenuToggle={() => setMenuOpen((open) => !open)} onNavigate={navigate} onLogout={logout} hideBrand={route === "society"} />
+    <Header currentUser={currentUser} menuOpen={menuOpen} onMenuToggle={() => setMenuOpen((open) => !open)} onNavigate={navigate} onLogout={logout} hideBrand={route === "society"} homePage={route === "home"} />
     <main id="main-content">{route === "home" ? <Home onNavigate={navigate} /> : route === "login" ? <LoginPage onNavigate={navigate} onAuthenticated={setCurrentUser} /> : route === "register" ? <RegisterPage onNavigate={navigate} /> : route === "admin" ? <AdminPage /> : route === "society" ? <SocietyPage onNavigate={navigate} /> : <SubmissionPage />}</main>
     <Footer onNavigate={navigate} />
   </div>;
@@ -73,7 +77,7 @@ function readRoute(): Route {
   return hash === "login" ? "login" : hash === "register" ? "register" : hash === "submit" ? "submit" : hash === "admin" ? "admin" : hash === "society" ? "society" : "home";
 }
 
-function Header({ currentUser, menuOpen, onMenuToggle, onNavigate, onLogout, hideBrand }: { currentUser: PublicUser | null; menuOpen: boolean; onMenuToggle: () => void; onNavigate: (href: string) => void; onLogout: () => Promise<void>; hideBrand: boolean }) {
+function Header({ currentUser, menuOpen, onMenuToggle, onNavigate, onLogout, hideBrand, homePage }: { currentUser: PublicUser | null; menuOpen: boolean; onMenuToggle: () => void; onNavigate: (href: string) => void; onLogout: () => Promise<void>; hideBrand: boolean; homePage: boolean }) {
   const localPreview = (window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost") && window.location.port === "5173";
   const accountRef = useRef<HTMLDivElement>(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
@@ -98,7 +102,9 @@ function Header({ currentUser, menuOpen, onMenuToggle, onNavigate, onLogout, hid
       {!hideBrand && <a className="brand event-brand" href="#home" aria-label="ChinaVR 2026 生成式VR影像单元首页" onClick={() => onNavigate("#home")}><img src="/assets/chinavr-2026-wordmark.png" alt="ChinaVR 2026 标志" /></a>}
       <button className="menu-toggle" type="button" aria-label={menuOpen ? "关闭导航" : "打开导航"} aria-expanded={menuOpen} aria-controls="primary-nav" onClick={onMenuToggle}><span aria-hidden="true">{menuOpen ? "×" : "☰"}</span></button>
       <nav id="primary-nav" className={`primary-nav ${menuOpen ? "is-open" : ""}`} aria-label="主导航">
+        {homePage && <><a href="#news" onClick={() => onNavigate("#news")}>大会动态</a><a href="#themes" onClick={() => onNavigate("#themes")}>主题方向</a></>}
         {navigation.map(([href, label]) => <a key={href} href={href} onClick={() => onNavigate(href)}>{label}</a>)}
+        {homePage && <a href="#timeline" onClick={() => onNavigate("#timeline")}>时间节点</a>}
         {currentUser ? <div className="header-account-shell" ref={accountRef}><button className="header-account" type="button" aria-label={"已登录：" + currentUser.email + "，点击进入工作台，右键打开账户菜单"} aria-haspopup="menu" aria-expanded={accountMenuOpen} title={currentUser.email} onClick={() => { setAccountMenuOpen(false); onNavigate(accountDestination); }} onContextMenu={(event) => { event.preventDefault(); setAccountMenuOpen(true); }}><span aria-hidden="true">{initial}</span></button>{accountMenuOpen && <div className="header-context-menu" role="menu"><span className="header-account-email">{currentUser.email}</span><button type="button" role="menuitem" onClick={() => void handleLogout()}>退出登录</button>{logoutError && <span className="header-account-error" role="alert">{logoutError}</span>}</div>}</div> : <a className="header-login" href="#login" onClick={() => onNavigate("#login")}>登录</a>}
         {localPreview && <>
           <a className="header-preview-link" href="#submit" onClick={() => onNavigate("#submit")}>投稿工作台</a>
@@ -111,29 +117,7 @@ function Header({ currentUser, menuOpen, onMenuToggle, onNavigate, onLogout, hid
 }
 
 function Home({ onNavigate }: { onNavigate: (href: string) => void }) {
-  return <>
-    <section className="event-hero event-hero-simple" aria-labelledby="event-title">
-      {/* 首屏装饰图：仅作背景，文字与按钮始终在上层。 */}
-      <img className="event-hero-watermark" src="/assets/ai-vr-hero-mark.png" alt="" aria-hidden="true" draggable={false} decoding="async" width={1280} height={1280} />
-      <div className="event-hero-simple-inner">
-        <div className="event-hero-content">
-          <p className="eyebrow event-eyebrow"><span className="eyebrow-dot" /> 中国计算机学会 · ChinaVR 2026</p>
-          <h1 id="event-title">生成式VR<br /><em>影像单元投稿</em></h1>
-          <p className="event-hero-lede">第26届中国虚拟现实大会作品征集<br/>欢迎电影人、视觉艺术家、数字媒体团队、技术开发者与学生投稿!</p>
-          <div className="hero-actions"><a className="button button-cinnabar" href="#submit" onClick={() => onNavigate("#submit")}>进入投稿入口 <span aria-hidden="true">↗</span></a><a className="text-link light-link" href="#requirements" onClick={() => onNavigate("#requirements")}>查看作品要求 ↓</a><a className="text-link light-link society-hero-link" href="#society" onClick={() => onNavigate("#society")}>学会相关人员 ↗</a></div>
-        </div>
-      </div>
-    </section>
-
-    <NewsMarquee />
-
-    <section className="event-facts" aria-label="大会关键信息"><div><span>大会时间</span><strong>2026.11.06—11.08</strong><small>中国 · 广州</small></div><div><span>投稿截止</span><strong>2026.10.12(23:59:59)</strong><small>请在截止日前完成提交</small></div><div><span>作品主题</span><strong>AI+VR：前沿科技、传统文化、科幻作品</strong><small>从二维影像到沉浸世界，都可以成为影像单元</small></div></section>
-
-    <section className="event-section event-requirements" id="requirements" aria-labelledby="requirements-title"><div className="event-section-index">01 / WORK REQUIREMENTS</div><div className="event-heading"><h2 id="requirements-title">提交前，<em>请确认您的作品：</em></h2><p>具体细则以组委会正式通知为准</p></div><div className="requirements-grid"><div><h3>作品与链接</h3><ul><li>主体作品时长 2—10 分钟，另附不超过 1 分钟的制作解析</li><li>主体作品和制作解析须发布在公开视频平台</li><li>主体作品使用 3 秒统一电子剧场片头，并包含片尾</li><li>接受叙事片、纪实片、纪录片、科幻片、实验影像、动画、实时影像、科研可视化及 3D VR/MR 等形式</li></ul></div><div><h3>技术与权利</h3><ul><li>技术规格不低于 1920×1080，建议 16:9 横屏</li><li>鼓励AIGC与传统视频制作方式结合</li><li>AI 参与核心视听内容原则上不低于 80%</li><li>音乐、字体、模型、数据与肖像等素材须拥有合法使用权</li></ul></div><div><h3>投稿事项</h3><ul><li>公开视频平台：抖音、B 站、小红书、视频号</li><li>不得删除、遮挡或修改模板中的赛事标识</li><li>提交创作构想、工具、工作流程与人工贡献说明</li><li>学生参赛者须注明学校、专业及指导教师信息</li><li>其他文件格式和命名规则以组委会后续通知为准</li></ul></div></div></section>
-
-
-    <section className="event-cta" aria-labelledby="cta-title"><img src="/assets/chinavr-2026-wordmark.png" alt="ChinaVR 2026 标志" /><div><span className="event-section-index">HERE WE GO!</span><h2 id="cta-title">你的作品<br /><em>一定能够闪耀！</em></h2></div><div className="event-cta-action"><img className="event-cta-watermark" src="/assets/ai-vr-hero-mark.png" alt="" aria-hidden="true" draggable={false} decoding="async" width={1280} height={1280} /><a className="button button-cinnabar" href="#submit" onClick={() => onNavigate("#submit")}>开始投稿 <span aria-hidden="true">↗</span></a></div></section>
-  </>;
+  return <GalaxyHome onNavigate={onNavigate} />;
 }
 
 function LoginPage({ onNavigate, onAuthenticated }: { onNavigate: (href: string) => void; onAuthenticated: (user: PublicUser) => void }) {

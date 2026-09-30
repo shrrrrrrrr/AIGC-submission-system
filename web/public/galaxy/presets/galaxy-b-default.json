@@ -1,0 +1,51 @@
+{
+  "mode": "hybrid",
+  "residual": 0,
+  "depthStrength": 1.8,
+  "thickness": 2,
+  "parallax": 2,
+  "starSize": 1.3,
+  "nebulaSize": 2,
+  "foregroundSize": 1,
+  "nebulaOpacity": 0.62,
+  "pointDensity": 1,
+  "bloom": true,
+  "bloomStrength": 0.43,
+  "morph": 0,
+  "flightSpeed": 2,
+  "starIntensity": 1.5,
+  "foregroundCleanup": 1,
+  "foregroundSoftness": 2,
+  "foregroundVisibility": true,
+  "residualVisible": false,
+  "starLayers": {
+    "bright": 1,
+    "medium": 0.8,
+    "dust": 0.42
+  },
+  "scrollPitchDegrees": 6,
+  "pointerYawDegrees": 7,
+  "pointerPitchDegrees": 4,
+  "followSpeed": 14,
+  "safeOverscan": 1.16,
+  "starVisibility": {
+    "bright": 1,
+    "medium": 1,
+    "dust": 0
+  },
+  "nebulaVisibility": {
+    "front": 0,
+    "mid": 1,
+    "back": 0
+  },
+  "nebulaIntensity": {
+    "front": 0.55,
+    "mid": 1,
+    "back": 0.52
+  },
+  "assetId": "galaxy-b",
+  "name": "GALAXY-B default (Galaxy A parameters)",
+  "source": "/galaxies/galaxy-b/source.png",
+  "previewProgress": 1,
+  "notes": "All runtime parameters intentionally match Galaxy A approved preset for scene comparison; source-derived point counts and colors remain asset-specific."
+}

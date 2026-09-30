@@ -22,6 +22,20 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<{ da
   return { data: data as T, etag: response.headers.get("ETag") };
 }
 
+export async function downloadFile(path: string, init: RequestInit = {}): Promise<Blob> {
+  const headers = new Headers(init.headers);
+  const method = init.method?.toUpperCase();
+  if (method && method !== 'GET') {
+    const csrfToken = readCsrfToken(document.cookie);
+    if (csrfToken) headers.set('X-CSRF-Token', csrfToken);
+  }
+  const response = await fetch(`${API_PREFIX}${path}`, { ...init, headers, credentials: 'same-origin', cache: 'no-store', signal: init.signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new ApiError(response.status, data.code ?? 'REQUEST_FAILED', data.message ?? '下载失败，请重试', Array.isArray(data.details) ? data.details : []);
+  }
+  return response.blob();
+}
 function readCsrfToken(cookieHeader: string): string | null {
   const cookie = cookieHeader.split(";").map((part) => part.trim()).find((part) => CSRF_COOKIE_NAMES.some((name) => part.startsWith(`${name}=`)));
   if (!cookie) return null;

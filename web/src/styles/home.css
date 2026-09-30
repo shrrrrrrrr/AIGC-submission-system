@@ -3,7 +3,7 @@
 .event-header { position: absolute; color: #fff; background: transparent; }
 .event-brand { gap: 11px; color: #fff; }
 .event-brand img { width: 34px; height: 34px; object-fit: contain; }
-.event-brand > span { display: flex; align-items: baseline; gap: 10px; font-family: "IBM Plex Mono", Consolas, monospace; font-size: 15px; letter-spacing: .08em; }
+.event-brand > span { display: flex; align-items: baseline; gap: 10px; font-family: "Smiley Sans", sans-serif; font-size: 15px; letter-spacing: .08em; }
 .event-brand b { color: #91d9ff; font-size: 11px; font-weight: 500; }
 .event-hero { position: relative; min-height: min(820px, 100vh); overflow: hidden; color: #fff; background: #061d62; isolation: isolate; }
 .event-hero-image, .event-hero-overlay { position: absolute; inset: 0; }
@@ -11,25 +11,25 @@
 .event-hero-overlay { background: linear-gradient(90deg, rgba(2, 12, 56, .9) 0%, rgba(2, 16, 77, .58) 42%, rgba(3, 20, 91, .18) 100%), linear-gradient(0deg, rgba(2, 10, 40, .52), transparent 44%); z-index: -1; }
 .event-hero-content { position: relative; z-index: 2; max-width: 1500px; min-height: min(820px, 100vh); margin: 0 auto; padding: 180px 8vw 100px; }
 .event-eyebrow { color: #b8e8ff; }
-.event-hero h1 { max-width: 660px; margin: 20px 0 0; color: #fff; font-family: "Noto Serif SC", "Songti SC", Georgia, serif; font-size: clamp(58px, 9vw, 126px); font-weight: 500; letter-spacing: -.07em; line-height: 1.02; }
+.event-hero h1 { max-width: 660px; margin: 20px 0 0; color: #fff; font-family: "Smiley Sans", sans-serif; font-size: clamp(58px, 9vw, 126px); font-weight: 500; letter-spacing: -.07em; line-height: 1.02; }
 .event-hero h1 em, .event-hero h2 em { color: #65d7ff; font-style: normal; }
 .event-hero-lede { max-width: 470px; margin: 30px 0 0; color: rgba(255,255,255,.82); font-size: 17px; line-height: 1.85; }
 .event-hero .hero-actions { margin-top: 40px; }
 .event-hero-mark { position: absolute; z-index: 1; right: 6vw; bottom: -11%; width: min(41vw, 600px); opacity: .7; filter: drop-shadow(0 0 45px rgba(43, 194, 255, .34)); pointer-events: none; }
 .event-hero-mark img { display: block; width: 100%; height: auto; }
 .event-hero-stamp { position: absolute; right: 8vw; bottom: 56px; z-index: 2; display: grid; gap: 3px; color: #fff; text-align: right; }
-.event-hero-stamp span { color: #ffcf5b; font-family: "IBM Plex Mono", Consolas, monospace; font-size: 28px; letter-spacing: .08em; }
-.event-hero-stamp small { color: rgba(255,255,255,.7); font-family: "IBM Plex Mono", Consolas, monospace; font-size: 10px; letter-spacing: .18em; line-height: 1.5; }
+.event-hero-stamp span { color: #ffcf5b; font-family: "Smiley Sans", sans-serif; font-size: 28px; letter-spacing: .08em; }
+.event-hero-stamp small { color: rgba(255,255,255,.7); font-family: "Smiley Sans", sans-serif; font-size: 10px; letter-spacing: .18em; line-height: 1.5; }
 .event-facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; padding: 0 8vw; color: #fff; background: #071c52; }
 .event-facts > div { display: grid; gap: 7px; min-height: 145px; padding: 31px 30px; border-left: 1px solid rgba(255,255,255,.16); }
 .event-facts > div:last-child { border-right: 1px solid rgba(255,255,255,.16); }
 .event-facts span, .event-facts small { color: rgba(255,255,255,.55); font-size: 11px; }
-.event-facts strong { color: #8ce1ff; font-family: "IBM Plex Mono", Consolas, monospace; font-size: 20px; font-weight: 500; letter-spacing: .02em; }
+.event-facts strong { color: #8ce1ff; font-family: "Smiley Sans", sans-serif; font-size: 20px; font-weight: 500; letter-spacing: .02em; }
 .event-section { padding: 120px 8vw; }
-.event-section-index { display: block; margin-bottom: 27px; color: #3978b8; font-family: "IBM Plex Mono", Consolas, monospace; font-size: 10px; letter-spacing: .16em; }
+.event-section-index { display: block; margin-bottom: 27px; color: #3978b8; font-family: "Smiley Sans", sans-serif; font-size: 10px; letter-spacing: .16em; }
 .event-intro { background: #f4f1ea; }
 .event-intro-grid, .event-jury-grid { display: grid; grid-template-columns: minmax(300px, .8fr) minmax(0, 1fr); gap: 10vw; max-width: 1180px; margin: 0 auto; }
-.event-intro h2, .event-heading h2, .event-jury h2, .event-source h2, .event-cta h2 { margin: 0; font-family: "Noto Serif SC", "Songti SC", Georgia, serif; font-size: clamp(38px, 5.2vw, 68px); font-weight: 500; letter-spacing: -.06em; line-height: 1.15; }
+.event-intro h2, .event-heading h2, .event-jury h2, .event-source h2, .event-cta h2 { margin: 0; font-family: "Smiley Sans", sans-serif; font-size: clamp(38px, 5.2vw, 68px); font-weight: 500; letter-spacing: -.06em; line-height: 1.15; }
 .event-intro h2 em, .event-heading h2 em, .event-jury h2 em, .event-source h2 em, .event-cta h2 em { color: #276fb6; font-style: normal; }
 .event-intro-grid > div { max-width: 610px; color: #646b73; font-size: 15px; }
 .event-intro-grid p { margin: 0 0 24px; }
@@ -43,7 +43,7 @@
 .theme-card { min-height: 290px; padding: 30px 30px 36px; border-right: 1px solid rgba(255,255,255,.22); }
 .theme-card:last-child { border-right: 0; }
 .theme-number { color: #ffcf5b; font-size: 12px; }
-.theme-card h3 { max-width: 230px; margin: 49px 0 14px; color: #fff; font-family: "Noto Serif SC", "Songti SC", Georgia, serif; font-size: 25px; font-weight: 500; line-height: 1.45; }
+.theme-card h3 { max-width: 230px; margin: 49px 0 14px; color: #fff; font-family: "Smiley Sans", sans-serif; font-size: 25px; font-weight: 500; line-height: 1.45; }
 .theme-card p { max-width: 290px; margin: 0; color: rgba(255,255,255,.68); font-size: 13px; line-height: 1.8; }
 .event-requirements { background: #fffdf8; }
 .requirements-grid { display: grid; grid-template-columns: repeat(3, 1fr); max-width: 1180px; margin: 0 auto; border-top: 1px solid #d9d5cc; }
@@ -59,15 +59,15 @@
 .date-grid > div { padding: 28px 25px 0 0; border-right: 1px solid #a8c9d8; }
 .date-grid > div:not(:first-child) { padding-left: 25px; }
 .date-grid > div:last-child { border-right: 0; }
-.date-big { display: block; color: #216db1; font-family: "IBM Plex Mono", Consolas, monospace; font-size: clamp(27px, 4vw, 45px); letter-spacing: -.05em; }
-.date-grid strong { display: block; margin-top: 9px; color: #172d45; font-family: "Noto Serif SC", "Songti SC", Georgia, serif; font-size: 20px; font-weight: 500; }
+.date-big { display: block; color: #216db1; font-family: "Smiley Sans", sans-serif; font-size: clamp(27px, 4vw, 45px); letter-spacing: -.05em; }
+.date-grid strong { display: block; margin-top: 9px; color: #172d45; font-family: "Smiley Sans", sans-serif; font-size: 20px; font-weight: 500; }
 .date-grid p { color: #627282; font-size: 13px; }
 .event-jury { color: #fff; background: #061a42; }
 .event-jury-grid { align-items: start; }
 .event-jury-grid > div:first-child p { max-width: 430px; margin-top: 31px; color: rgba(255,255,255,.68); font-size: 14px; line-height: 1.85; }
 .score-list { border-top: 1px solid rgba(255,255,255,.25); }
 .score-list > div { display: flex; align-items: center; gap: 25px; padding: 18px 0; border-bottom: 1px solid rgba(255,255,255,.25); }
-.score-list b { width: 55px; color: #ffcf5b; font-family: "IBM Plex Mono", Consolas, monospace; font-size: 36px; font-weight: 400; }
+.score-list b { width: 55px; color: #ffcf5b; font-family: "Smiley Sans", sans-serif; font-size: 36px; font-weight: 400; }
 .score-list span { display: grid; gap: 3px; }
 .score-list strong { font-size: 15px; font-weight: 700; }
 .score-list small { color: rgba(255,255,255,.56); font-size: 12px; }
@@ -85,7 +85,7 @@
 .event-footer { position: relative; display: grid; grid-template-columns: 1.2fr 1fr 1fr auto; align-items: start; gap: 35px; padding: 45px 8vw 26px; color: #dbe8fa; background: #041333; }
 .event-footer .footer-brand { display: flex; align-items: center; gap: 10px; }
 .event-footer .footer-brand img { width: 34px; height: 34px; object-fit: contain; }
-.event-footer .footer-brand span { font-family: "IBM Plex Mono", Consolas, monospace; font-size: 14px; letter-spacing: .08em; }
+.event-footer .footer-brand span { font-family: "Smiley Sans", sans-serif; font-size: 14px; letter-spacing: .08em; }
 .event-footer .footer-brand em { color: #79d9ff; font-style: normal; }
 .event-footer p { margin: 0; color: #fff; font-size: 13px; line-height: 1.8; }
 .event-footer p span { color: rgba(255,255,255,.52); font-size: 11px; }
@@ -131,7 +131,7 @@
 .event-brand > span { display: none; }
 .event-cta > img { width: 120px; height: 120px; object-fit: contain; }
 .event-footer .footer-brand img { width: 92px; height: 58px; object-fit: contain; }
-.event-footer .footer-brand span { color: rgba(255,255,255,.82); font-family: "Noto Sans SC", "Microsoft YaHei", sans-serif; font-size: 13px; letter-spacing: 0; }
+.event-footer .footer-brand span { color: rgba(255,255,255,.82); font-family: "Smiley Sans", sans-serif; font-size: 13px; letter-spacing: 0; }
 /* 首屏人像 logo：CSS 镜像使脸朝左，保持不透明并位于文字下方。 */
 .event-hero-simple-inner { position: relative; z-index: 1; }
 .event-hero-watermark {
@@ -156,3 +156,6 @@
     transform: scaleX(-1);
   }
 }
+
+.requirements-detail-link { color: #276fb6; text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
+.requirements-detail-link:hover { color: #154d88; }

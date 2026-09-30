@@ -1,0 +1,51 @@
+{
+  "mode": "hybrid",
+  "residual": 0,
+  "depthStrength": 1.8,
+  "thickness": 2,
+  "parallax": 2,
+  "starSize": 2,
+  "nebulaSize": 0.96,
+  "foregroundSize": 1,
+  "nebulaOpacity": 0.62,
+  "pointDensity": 0.92,
+  "bloom": true,
+  "bloomStrength": 0.81,
+  "morph": 0,
+  "flightSpeed": 2,
+  "starIntensity": 1.5,
+  "foregroundCleanup": 1,
+  "foregroundSoftness": 2,
+  "foregroundVisibility": true,
+  "residualVisible": false,
+  "starLayers": {
+    "bright": 1,
+    "medium": 0.8,
+    "dust": 0.42
+  },
+  "scrollPitchDegrees": 8,
+  "pointerYawDegrees": 7,
+  "pointerPitchDegrees": 4,
+  "followSpeed": 14,
+  "safeOverscan": 1.33,
+  "starVisibility": {
+    "bright": 1,
+    "medium": 1,
+    "dust": 0
+  },
+  "nebulaVisibility": {
+    "front": 0,
+    "mid": 1,
+    "back": 0
+  },
+  "nebulaIntensity": {
+    "front": 0.55,
+    "mid": 1,
+    "back": 0.52
+  },
+  "assetId": "galaxy-e",
+  "name": "Galaxy E default",
+  "source": "/galaxies/galaxy-e/source.png",
+  "previewProgress": 1,
+  "notes": "Galaxy E uses the shared approved visual parameters; framing follows its own source aspect."
+}

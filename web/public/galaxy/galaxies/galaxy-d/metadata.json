@@ -1,0 +1,209 @@
+{
+  "assetId": "galaxy-d",
+  "formatVersion": 3,
+  "byteOrder": "little-endian",
+  "componentType": "float32",
+  "colorSpace": "linear-srgb",
+  "seed": 20260927,
+  "source": {
+    "file": "source.png",
+    "width": 500,
+    "height": 750,
+    "aspect": 0.6666666666666666,
+    "sha256": "f589df60ea1c2e74b80db30acb5fa8ff91347f37e4a2d68c0eee7d2ddd22a202"
+  },
+  "world": {
+    "width": 26.0,
+    "height": 39.0,
+    "referenceZ": -22.0,
+    "referenceCameraZ": 28.0
+  },
+  "stars": {
+    "layers": {
+      "bright": {
+        "file": "stars-bright.bin",
+        "count": 1847,
+        "stride": 8,
+        "fields": [
+          "x",
+          "y",
+          "z",
+          "size",
+          "r",
+          "g",
+          "b",
+          "emissive"
+        ],
+        "bytes": 59104,
+        "sha256": "76c7a9066875b73b67f174c6bc00a5baba180356eaff8cd0a5bcea9f6339fc64"
+      },
+      "medium": {
+        "file": "stars-medium.bin",
+        "count": 26000,
+        "stride": 8,
+        "fields": [
+          "x",
+          "y",
+          "z",
+          "size",
+          "r",
+          "g",
+          "b",
+          "emissive"
+        ],
+        "bytes": 832000,
+        "sha256": "d4e92de21353f4b89b4d46c45e4b5ba352c42bf150890fd7c10907100f4a76cc"
+      },
+      "dust": {
+        "file": "stars-dust.bin",
+        "count": 65000,
+        "stride": 8,
+        "fields": [
+          "x",
+          "y",
+          "z",
+          "size",
+          "r",
+          "g",
+          "b",
+          "emissive"
+        ],
+        "bytes": 2080000,
+        "sha256": "23c4378182ebe0ad73f9f98280f5ef1a47ce1373d26e16f89d13c8c9208c0aa5"
+      }
+    },
+    "count": 92847
+  },
+  "nebula": {
+    "layers": {
+      "front": {
+        "file": "nebula-front.bin",
+        "count": 16000,
+        "stride": 10,
+        "fields": [
+          "x",
+          "y",
+          "z",
+          "size",
+          "r",
+          "g",
+          "b",
+          "alpha",
+          "density",
+          "seed"
+        ],
+        "bytes": 640000,
+        "sha256": "d9c7a684ba4dc9ea0f09a50e0c8de890e33bac348193df264463b0d20f0ee4f6"
+      },
+      "mid": {
+        "file": "nebula-mid.bin",
+        "count": 65000,
+        "stride": 10,
+        "fields": [
+          "x",
+          "y",
+          "z",
+          "size",
+          "r",
+          "g",
+          "b",
+          "alpha",
+          "density",
+          "seed"
+        ],
+        "bytes": 2600000,
+        "sha256": "66f3b87c04b517d70a6bc37166be0ea8c4cde41a0309240211eab04e05a68ab7"
+      },
+      "back": {
+        "file": "nebula-back.bin",
+        "count": 24000,
+        "stride": 10,
+        "fields": [
+          "x",
+          "y",
+          "z",
+          "size",
+          "r",
+          "g",
+          "b",
+          "alpha",
+          "density",
+          "seed"
+        ],
+        "bytes": 960000,
+        "sha256": "27ac973444c3e8ae1b7b4b7cde9bb06ada706c4a8d96aeed22e6ced573975335"
+      }
+    },
+    "file": "nebula.bin",
+    "count": 105000,
+    "stride": 10,
+    "thickness": 5.0
+  },
+  "foreground": {
+    "file": "foreground-dust.bin",
+    "count": 6000,
+    "stride": 8,
+    "fields": [
+      "x",
+      "y",
+      "z",
+      "size",
+      "r",
+      "g",
+      "b",
+      "alpha"
+    ],
+    "bytes": 192000,
+    "sha256": "e740c566b53aee75f81e0819a5f37033b178597386fc6df5288965bd23bc5b5b"
+  },
+  "residual": {
+    "file": "residual.webp",
+    "lossless": true
+  },
+  "config": {
+    "assetId": "galaxy-d",
+    "displayName": "Galaxy D",
+    "sourceImage": "source.png",
+    "worldWidth": 26.0,
+    "thickness": 5.0,
+    "counts": {
+      "stars": 6000,
+      "mediumStars": 26000,
+      "dustStars": 65000,
+      "front": 16000,
+      "mid": 65000,
+      "back": 24000,
+      "foreground": 6000
+    },
+    "camera": {
+      "startZ": 58,
+      "endZ": 12,
+      "targetZStart": -22,
+      "targetZEnd": -35,
+      "focalX": 0,
+      "focalY": 0,
+      "rollDegrees": 90,
+      "yawDegrees": 8,
+      "pitchDegrees": 5
+    },
+    "visual": {
+      "depthStrength": 1.57,
+      "thickness": 2.0,
+      "parallax": 2.0,
+      "starSize": 1.24,
+      "nebulaSize": 0.48,
+      "pointDensity": 0.83,
+      "flightSpeed": 2.0,
+      "starIntensity": 1.5,
+      "foregroundCleanup": 1.0,
+      "foregroundSoftness": 2.0,
+      "bloomStrength": 0.42,
+      "nebulaIntensity": {
+        "front": 0.55,
+        "mid": 1.0,
+        "back": 0.52
+      }
+    }
+  },
+  "depthNote": "Artistic single-image reconstruction, not recovered astronomical distances."
+}

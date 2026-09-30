@@ -1,0 +1,51 @@
+{
+  "mode": "hybrid",
+  "residual": 0,
+  "depthStrength": 1.8,
+  "thickness": 2,
+  "parallax": 2,
+  "starSize": 0.67,
+  "nebulaSize": 1.31,
+  "foregroundSize": 1,
+  "nebulaOpacity": 0.62,
+  "pointDensity": 1,
+  "bloom": true,
+  "bloomStrength": 0.4,
+  "morph": 0,
+  "flightSpeed": 2,
+  "starIntensity": 1.5,
+  "foregroundCleanup": 1,
+  "foregroundSoftness": 2,
+  "foregroundVisibility": false,
+  "residualVisible": false,
+  "starLayers": {
+    "bright": 1,
+    "medium": 0.8,
+    "dust": 0.42
+  },
+  "scrollPitchDegrees": 8,
+  "pointerYawDegrees": 7,
+  "pointerPitchDegrees": 4,
+  "followSpeed": 14,
+  "safeOverscan": 1.13,
+  "starVisibility": {
+    "bright": 1,
+    "medium": 1,
+    "dust": 0
+  },
+  "nebulaVisibility": {
+    "front": 1,
+    "mid": 1,
+    "back": 0
+  },
+  "nebulaIntensity": {
+    "front": 0.55,
+    "mid": 1,
+    "back": 0.52
+  },
+  "assetId": "galaxy-d",
+  "name": "GALAXY-D default (Galaxy A parameters)",
+  "source": "/galaxies/galaxy-d/source.png",
+  "previewProgress": 1,
+  "notes": "All runtime parameters intentionally match Galaxy A approved preset for scene comparison; source-derived point counts and colors remain asset-specific."
+}

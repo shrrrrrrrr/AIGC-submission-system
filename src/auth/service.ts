@@ -143,6 +143,10 @@ export class AuthService {
     return user ? { session, user } : null;
   }
 
+  async findUserById(userId: string): Promise<User | null> {
+    return this.repository.findUserById(userId);
+  }
+
   async logout(session: Session, requestId: string, ip?: string): Promise<void> {
     await this.repository.revokeSession(session, this.clock.now());
     await this.audit("auth.logout", "success", requestId, ip, { userId: session.userId });

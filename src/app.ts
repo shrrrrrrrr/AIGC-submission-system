@@ -200,7 +200,26 @@ export function createApp(dependencies: AppDependencies): Hono<RequestContext> {
     if (!query.success) return c.json(errorBody("INVALID_REQUEST", "分页或状态参数无效", requestId), 422);
     try {
       const submissions = (await dependencies.submissions.adminList(sessionResult.user)).filter((item) => !query.data.status || item.currentStatus === query.data.status).slice(0, query.data.limit);
-      return c.json({ items: submissions.map(adminSubmissionSummary), requestId });
+      const items = await Promise.all(submissions.map(async (item) => adminSubmissionSummary(item, (await dependencies.auth.findUserById(item.ownerUserId))?.email ?? "未知邮箱")));
+      return c.json({ items, requestId });
+    } catch (error) {
+      return handleError(c, error, requestId);
+    }
+  });
+
+  app.post("/api/v1/admin/submissions/export", async (c) => {
+    const requestId = c.get("requestId");
+    const sessionResult = await dependencies.auth.getSession(getCookie(c, sessionCookieName));
+    if (!sessionResult) return c.json(errorBody("UNAUTHENTICATED", "请先登录", requestId), 401);
+    if (!csrfMatches(c, sessionResult.session.csrfToken, csrfCookieName)) return c.json(errorBody("CSRF_INVALID", "请求校验失败", requestId), 403);
+    if (!dependencies.submissions) return c.json(errorBody("SUBMISSIONS_UNAVAILABLE", "投稿服务暂不可用", requestId), 503);
+    try {
+      const submissions = await dependencies.submissions.adminExport(sessionResult.user, submissionContext(c, requestId));
+      const rows = await Promise.all(submissions.map(async (submission) => ({ submission, email: (await dependencies.auth.findUserById(submission.ownerUserId))?.email ?? "未知邮箱" })));
+      const csv = adminExportCsv(rows);
+      c.header("Content-Type", "text/csv; charset=utf-8");
+      c.header("Content-Disposition", `attachment; filename="chinavr-submissions-${new Date().toISOString().slice(0, 10)}.csv"`);
+      return c.body(csv);
     } catch (error) {
       return handleError(c, error, requestId);
     }
@@ -213,7 +232,8 @@ export function createApp(dependencies: AppDependencies): Hono<RequestContext> {
     if (!dependencies.submissions) return c.json(errorBody("SUBMISSIONS_UNAVAILABLE", "投稿服务暂不可用", requestId), 503);
     try {
       const submission = await dependencies.submissions.adminGet(sessionResult.user, c.req.param("id"));
-      return c.json({ submission: adminSafeSubmission(submission), requestId });
+      const submitterEmail = (await dependencies.auth.findUserById(submission.ownerUserId))?.email ?? "未知邮箱";
+      return c.json({ submission: adminSafeSubmission(submission, submitterEmail), requestId });
     } catch (error) {
       return handleError(c, error, requestId);
     }
@@ -235,6 +255,22 @@ export function createApp(dependencies: AppDependencies): Hono<RequestContext> {
     }
   });
 
+  app.post("/api/v1/admin/submissions/:id/media-links/:linkId/copy", async (c) => {
+    const requestId = c.get("requestId");
+    const sessionResult = await dependencies.auth.getSession(getCookie(c, sessionCookieName));
+    if (!sessionResult) return c.json(errorBody("UNAUTHENTICATED", "请先登录", requestId), 401);
+    if (!csrfMatches(c, sessionResult.session.csrfToken, csrfCookieName)) return c.json(errorBody("CSRF_INVALID", "请求校验失败", requestId), 403);
+    if (!dependencies.submissions) return c.json(errorBody("SUBMISSIONS_UNAVAILABLE", "投稿服务暂不可用", requestId), 503);
+    const body = adminOpenLinkSchema.safeParse(await safeJson(c));
+    if (!body.success) return c.json(errorBody("VALIDATION_ERROR", "复制原因无效", requestId), 422);
+    try {
+      const url = await dependencies.submissions.adminCopyMediaLink(sessionResult.user, c.req.param("id"), c.req.param("linkId"), body.data.reason, new Date(), submissionContext(c, requestId));
+      return c.json({ url, requestId });
+    } catch (error) {
+      return handleError(c, error, requestId);
+    }
+  });
+
   app.post("/api/v1/admin/submissions/:id/transitions", async (c) => {
     const requestId = c.get("requestId");
     const sessionResult = await dependencies.auth.getSession(getCookie(c, sessionCookieName));
@@ -245,7 +281,8 @@ export function createApp(dependencies: AppDependencies): Hono<RequestContext> {
     if (!body.success) return c.json(errorBody("VALIDATION_ERROR", "状态流转参数无效", requestId), 422);
     try {
       const submission = await dependencies.submissions.adminTransition(sessionResult.user, c.req.param("id"), body.data.targetStatus, body.data.reason, body.data.expectedStatus, new Date(), submissionContext(c, requestId));
-      return c.json({ submission: adminSafeSubmission(submission), requestId });
+      const submitterEmail = (await dependencies.auth.findUserById(submission.ownerUserId))?.email ?? "未知邮箱";
+      return c.json({ submission: adminSafeSubmission(submission, submitterEmail), requestId });
     } catch (error) {
       return handleError(c, error, requestId);
     }
@@ -265,6 +302,18 @@ export function createApp(dependencies: AppDependencies): Hono<RequestContext> {
       const submission = await dependencies.submissions.createDraft(sessionResult.user, body.data, idempotencyKey, new Date(), submissionContext(c, requestId));
       c.header("ETag", draftEtag(submission.draftRevision));
       return c.json({ submission: publicSubmission(submission), requestId }, 201);
+    } catch (error) {
+      return handleError(c, error, requestId);
+    }
+  });
+
+  app.get("/api/v1/submissions/quota", async (c) => {
+    const requestId = c.get("requestId");
+    const sessionResult = await dependencies.auth.getSession(getCookie(c, sessionCookieName));
+    if (!sessionResult) return c.json(errorBody("UNAUTHENTICATED", "请先登录", requestId), 401);
+    if (!dependencies.submissions) return c.json(errorBody("SUBMISSIONS_UNAVAILABLE", "投稿服务暂不可用", requestId), 503);
+    try {
+      return c.json({ ...(await dependencies.submissions.getSubmissionQuota(sessionResult.user)), requestId });
     } catch (error) {
       return handleError(c, error, requestId);
     }
@@ -398,6 +447,18 @@ function createLimiter(): LoginLimiter {
 
 type LoginLimiter = { allow(): boolean; reset(): void };
 
+function csvCell(value: unknown): string {
+  return '"' + String(value ?? '').replace(/"/g, '""') + '"';
+}
+
+function adminExportCsv(rows: Array<{ submission: Submission; email: string }>): string {
+  const header = ['提交编号', '提交时间', '投稿邮箱', '作品名称', '投稿方向', '作品形式', '当前状态', '版本', '作品简介', '创作说明', 'AI贡献比例', 'AI工具', 'AI创作流程', '人工贡献说明', '主体作品链接', '制作解析链接', '导览视频链接', '体验链接'];
+  const lines = rows.map(({ submission, email }) => {
+    const links = Object.fromEntries(submission.mediaLinks.map((link) => [link.purpose, link.originalUrl]));
+    return [submission.receiptNo, submission.submittedAt?.toISOString() ?? '', email, submission.draft.title, submission.draft.direction, submission.draft.workForm, submission.currentStatus, submission.currentVersionNo, submission.draft.synopsis, submission.draft.creativeStatement, submission.draft.aiContributionPercent ?? '', submission.draft.aiTools.join('、'), submission.draft.aiWorkflow, submission.draft.humanContribution, links.mainWork ?? '', links.makingOf ?? '', links.guideVideo ?? '', links.experience ?? ''].map(csvCell).join(',');
+  });
+  return '\uFEFF' + [header.map(csvCell).join(','), ...lines].join('\r\n') + '\r\n';
+}
 async function safeJson(c: { req: { json(): Promise<unknown> } }): Promise<unknown> {
   try {
     return await c.req.json();
@@ -434,19 +495,19 @@ function draftEtag(revision: number): string {
 }
 
 function publicSubmission(submission: Submission) {
-  return { ...submission, createdAt: submission.createdAt.toISOString(), updatedAt: submission.updatedAt.toISOString(), mediaLinks: submission.mediaLinks.map(publicMediaLink) };
+  return { ...submission, submittedAt: submission.submittedAt?.toISOString() ?? null, createdAt: submission.createdAt.toISOString(), updatedAt: submission.updatedAt.toISOString(), mediaLinks: submission.mediaLinks.map(publicMediaLink) };
 }
 
 function publicMediaLink(link: MediaLink) {
   return { ...link, checkedAt: link.checkedAt?.toISOString() ?? null, expiresAt: link.expiresAt?.toISOString() ?? null };
 }
 
-function adminSubmissionSummary(submission: Submission) {
-  return { id: submission.id, receiptNo: submission.receiptNo, title: submission.draft.title, direction: submission.draft.direction, workForm: submission.draft.workForm, currentStatus: submission.currentStatus, currentVersionNo: submission.currentVersionNo, updatedAt: submission.updatedAt.toISOString() };
+function adminSubmissionSummary(submission: Submission, submitterEmail: string) {
+  return { id: submission.id, receiptNo: submission.receiptNo, title: submission.draft.title, direction: submission.draft.direction, workForm: submission.draft.workForm, currentStatus: submission.currentStatus, currentVersionNo: submission.currentVersionNo, submittedAt: submission.submittedAt?.toISOString() ?? null, updatedAt: submission.updatedAt.toISOString(), submitterEmail };
 }
 
-function adminSafeSubmission(submission: Submission) {
-  return { ...publicSubmission(submission), mediaLinks: submission.mediaLinks.map((link) => {
+function adminSafeSubmission(submission: Submission, submitterEmail?: string) {
+  return { ...publicSubmission(submission), ...(submitterEmail ? { submitterEmail } : {}), mediaLinks: submission.mediaLinks.map((link) => {
     const { originalUrl: _originalUrl, canonicalUrl: _canonicalUrl, ...safe } = publicMediaLink(link);
     return safe;
   }) };

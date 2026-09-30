@@ -1,0 +1,51 @@
+{
+  "mode": "hybrid",
+  "residual": 0,
+  "depthStrength": 1.57,
+  "thickness": 0.2,
+  "parallax": 2,
+  "starSize": 1.61,
+  "nebulaSize": 0.4,
+  "foregroundSize": 1,
+  "nebulaOpacity": 0.62,
+  "pointDensity": 0.68,
+  "bloom": true,
+  "bloomStrength": 0.21,
+  "morph": 1,
+  "flightSpeed": 2,
+  "starIntensity": 1.45,
+  "foregroundCleanup": 1,
+  "foregroundSoftness": 2,
+  "foregroundVisibility": true,
+  "residualVisible": false,
+  "starLayers": {
+    "bright": 1,
+    "medium": 0.8,
+    "dust": 0.42
+  },
+  "scrollPitchDegrees": 8,
+  "pointerYawDegrees": 7,
+  "pointerPitchDegrees": 4,
+  "followSpeed": 14,
+  "safeOverscan": 1.07,
+  "starVisibility": {
+    "bright": 1,
+    "medium": 1,
+    "dust": 0
+  },
+  "nebulaVisibility": {
+    "front": 0,
+    "mid": 1,
+    "back": 0
+  },
+  "nebulaIntensity": {
+    "front": 0.55,
+    "mid": 1,
+    "back": 0.52
+  },
+  "assetId": "galaxy-c",
+  "name": "GALAXY-C default (Galaxy A parameters)",
+  "source": "/galaxies/galaxy-c/source.png",
+  "previewProgress": 1,
+  "notes": "All runtime parameters intentionally match Galaxy A approved preset for scene comparison; source-derived point counts and colors remain asset-specific."
+}

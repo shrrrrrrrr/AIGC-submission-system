@@ -283,6 +283,17 @@ test("configured platform roots accept only curated first-party share aliases", 
   assert.deepEqual(expandApprovedVideoHosts(["douyin.com", "douyin.com"]), ["douyin.com", "www.douyin.com", "v.douyin.com", "m.douyin.com"]);
   assert.throws(() => normalizeVideoShareInput("https://evil.douyin.com/video/1", ["douyin.com"]), (error: unknown) => error instanceof VideoUrlError && error.code === "UNSUPPORTED_PLATFORM");
 });
+test("an account cannot formally submit more than three works", async () => {
+  const repository = new InMemorySubmissionRepository();
+  const service = new SubmissionService(repository);
+  const user = userFixture();
+  for (let index = 0; index < 3; index += 1) {
+    const draft = await service.createDraft(user, { title: `已提交作品 ${index + 1}`, direction: "frontier_tech", workForm: "animation" }, `quota-create-${index}`);
+    await repository.update({ ...draft, currentStatus: "submitted", submittedAt: new Date(`2026-09-23T0${index}:00:00.000Z`) });
+  }
+  const fourth = await service.createDraft(user, { title: "第四件作品", direction: "frontier_tech", workForm: "animation" }, "quota-create-4");
+  await assert.rejects(() => service.submit(user, fourth.id, `"${fourth.draftRevision}"`), (error: unknown) => error instanceof SubmissionError && error.code === "SUBMISSION_LIMIT_REACHED");
+});
 for (const [name, run] of cases) {
   await run();
   console.log(`PASS ${name}`);
