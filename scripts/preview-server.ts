@@ -80,10 +80,19 @@ const previewSubmission: Submission = {
     checkedAt: new Date(),
     expiresAt: new Date(Date.now() + 30 * 60 * 1000),
   }],
+  submittedAt: new Date(),
   createdAt: new Date(),
   updatedAt: new Date(),
 };
 await submissionRepository.insert(previewSubmission);
+for (const [index, title] of ['虚实之间（演示）', '山海新卷（演示）'].entries()) {
+  await submissionRepository.insert({ ...previewSubmission,
+    id: `00000000-0000-4000-8000-00000000010${index}`,
+    receiptNo: `CVR26-DEMO-${index + 1}`,
+    draft: { ...previewSubmission.draft, title, direction: index === 0 ? 'science_fiction' : 'traditional_culture' },
+    submittedAt: new Date(Date.now() - (index + 1) * 86400000),
+  });
+}
 
 const auth = new AuthService(repository, {
   async sendEmailVerification() {},

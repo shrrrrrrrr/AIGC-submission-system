@@ -26,10 +26,18 @@ export function setupNewsReel(root) {
     const link = document.createElement("a");
     link.className = "film-frame"; link.href = safeLink(item.href); link.target = "_blank"; link.rel = "noopener noreferrer"; link.tabIndex = -1;
     link.setAttribute("aria-label", item.title); link.setAttribute("aria-hidden", "true"); link.draggable = false;
-    const image = document.createElement("img"); image.src = item.image; image.alt = ""; image.draggable = false;
+    const image = document.createElement("img"); image.decoding = "async"; image.dataset.newsSrc = item.image; image.alt = ""; image.draggable = false;
     const label = document.createElement("span"); label.className = "frame-index"; label.textContent = `${String(index % newsItems.length + 1).padStart(2, "0")} / CHINAVR`;
     link.append(image, label); container.append(link); return link;
   });
+  // Native lazy loading can start thousands of pixels ahead. Keep these large
+  // below-the-fold images off the connection until the reel is close to view.
+  const imageObserver = new IntersectionObserver(entries => {
+    if (!entries.some(entry => entry.isIntersecting)) return;
+    root.querySelectorAll('[data-news-src]').forEach(image => { image.src = image.dataset.newsSrc; });
+    imageObserver.disconnect();
+  }, { rootMargin: "300px" });
+  imageObserver.observe(stage);
   const render = () => {
     let nearest = 0; let maxDepth = -Infinity;
     cards.forEach((card, index) => {
@@ -86,5 +94,5 @@ export function setupNewsReel(root) {
   window.addEventListener("pointerup", onWindowPointerUp); window.addEventListener("blur", onBlur); reducedMotion.addEventListener("change", onMotionChange); document.addEventListener("visibilitychange", onVisibility);
   const resizeObserver = new ResizeObserver(resize); resizeObserver.observe(stage); const intersectionObserver = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; if (visible) wake(); else { cancelAnimationFrame(raf); raf = 0; lastTime = 0; } }); intersectionObserver.observe(stage);
   resize(); render(); wake();
-  return () => { cancelAnimationFrame(raf); resizeObserver.disconnect(); intersectionObserver.disconnect(); previous.removeEventListener("click", onPrevious); next.removeEventListener("click", onNext); stage.removeEventListener("pointerdown", onPointerDown); stage.removeEventListener("pointermove", onPointerMove); stage.removeEventListener("pointerup", onPointerUp); stage.removeEventListener("pointercancel", onPointerCancel); stage.removeEventListener("click", onClick, true); stage.removeEventListener("dragstart", onDragStart); stage.removeEventListener("pointerleave", onPointerLeave); window.removeEventListener("pointerup", onWindowPointerUp); window.removeEventListener("blur", onBlur); reducedMotion.removeEventListener("change", onMotionChange); document.removeEventListener("visibilitychange", onVisibility); container.replaceChildren(); };
+  return () => { cancelAnimationFrame(raf); imageObserver.disconnect(); resizeObserver.disconnect(); intersectionObserver.disconnect(); previous.removeEventListener("click", onPrevious); next.removeEventListener("click", onNext); stage.removeEventListener("pointerdown", onPointerDown); stage.removeEventListener("pointermove", onPointerMove); stage.removeEventListener("pointerup", onPointerUp); stage.removeEventListener("pointercancel", onPointerCancel); stage.removeEventListener("click", onClick, true); stage.removeEventListener("dragstart", onDragStart); stage.removeEventListener("pointerleave", onPointerLeave); window.removeEventListener("pointerup", onWindowPointerUp); window.removeEventListener("blur", onBlur); reducedMotion.removeEventListener("change", onMotionChange); document.removeEventListener("visibilitychange", onVisibility); container.replaceChildren(); };
 }

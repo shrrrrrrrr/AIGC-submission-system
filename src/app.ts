@@ -13,6 +13,8 @@ import { SubmissionService } from "./submission/service.js";
 import type { SubmissionRequestContext } from "./submission/service.js";
 import { MEDIA_PURPOSES, SUBMISSION_DIRECTIONS, SUBMISSION_STATUSES, WORK_FORMS } from "./submission/types.js";
 import type { MediaLink, Submission } from "./submission/types.js";
+import { filterTableRows, tableRow } from './submission/table.js';
+import { submissionWorkbook } from './submission/excel.js';
 
 const registerSchema = z.object({ email: z.string(), password: z.string() });
 const loginSchema = registerSchema.extend({ mfaCode: z.string().length(6).optional() });
@@ -35,6 +37,8 @@ const patchSubmissionSchema = z.object({
 }).strict();
 const mediaLinkSchema = z.object({ purpose: z.enum(MEDIA_PURPOSES), url: z.string().max(4096) }).strict();
 const adminListSchema = z.object({ limit: z.coerce.number().int().min(1).max(50).default(50), status: z.enum(SUBMISSION_STATUSES).optional() });
+const tableFilterSchema = z.object({ q: z.string().trim().max(200).optional(), status: z.enum(SUBMISSION_STATUSES).optional(), direction: z.enum(SUBMISSION_DIRECTIONS).optional() }).strict();
+const tablePageSchema = tableFilterSchema.extend({ page: z.coerce.number().int().min(1).max(100000).default(1) });
 const submissionListSchema = z.object({ limit: z.coerce.number().int().min(1).max(50).default(20), cursor: z.string().uuid().optional(), status: z.literal("draft").optional() });
 const adminTransitionSchema = z.object({ targetStatus: z.enum(SUBMISSION_STATUSES), expectedStatus: z.enum(SUBMISSION_STATUSES), reason: z.string().trim().min(2).max(1000) }).strict();
 const adminOpenLinkSchema = z.object({ reason: z.string().trim().min(2).max(500) }).strict();
@@ -205,6 +209,45 @@ export function createApp(dependencies: AppDependencies): Hono<RequestContext> {
     } catch (error) {
       return handleError(c, error, requestId);
     }
+  });
+
+  app.get('/api/v1/admin/submissions/table', async (c) => {
+    const requestId = c.get('requestId');
+    const session = await dependencies.auth.getSession(getCookie(c, sessionCookieName));
+    if (!session) return c.json(errorBody('UNAUTHENTICATED', '请先登录', requestId), 401);
+    if (!dependencies.submissions) return c.json(errorBody('SUBMISSIONS_UNAVAILABLE', '投稿服务暂不可用', requestId), 503);
+    const query = tablePageSchema.safeParse(c.req.query());
+    if (!query.success) return c.json(errorBody('INVALID_REQUEST', '筛选或分页参数无效', requestId), 422);
+    try {
+      const submissions = await dependencies.submissions.adminList(session.user);
+      const emails = new Map<string, string>();
+      await Promise.all([...new Set(submissions.filter(s => s.submittedAt != null).map(s => s.ownerUserId))].map(async id => emails.set(id, (await dependencies.auth.findUserById(id))?.email ?? '未知邮箱')));
+      const rows = filterTableRows(submissions.map(submission => ({ submission, email: emails.get(submission.ownerUserId) ?? '未知邮箱' })), query.data);
+      const pageSize = 50;
+      const page = Math.min(query.data.page, Math.max(1, Math.ceil(rows.length / pageSize)));
+      return c.json({ items: rows.slice((page - 1) * pageSize, page * pageSize).map(row => tableRow(row)), total: rows.length, page, pageSize, refreshedAt: new Date().toISOString(), requestId });
+    } catch (error) { return handleError(c, error, requestId); }
+  });
+
+  app.post('/api/v1/admin/submissions/table/export', async (c) => {
+    const requestId = c.get('requestId');
+    const session = await dependencies.auth.getSession(getCookie(c, sessionCookieName));
+    if (!session) return c.json(errorBody('UNAUTHENTICATED', '请先登录', requestId), 401);
+    if (!csrfMatches(c, session.session.csrfToken, csrfCookieName)) return c.json(errorBody('CSRF_INVALID', '请求校验失败', requestId), 403);
+    if (!dependencies.submissions) return c.json(errorBody('SUBMISSIONS_UNAVAILABLE', '投稿服务暂不可用', requestId), 503);
+    const filter = tableFilterSchema.safeParse(await safeJson(c));
+    if (!filter.success) return c.json(errorBody('INVALID_REQUEST', '导出筛选参数无效', requestId), 422);
+    try {
+      const submissions = await dependencies.submissions.adminList(session.user);
+      const emails = new Map<string, string>();
+      await Promise.all([...new Set(submissions.filter(s => s.submittedAt != null).map(s => s.ownerUserId))].map(async id => emails.set(id, (await dependencies.auth.findUserById(id))?.email ?? '未知邮箱')));
+      const rows = filterTableRows(submissions.map(submission => ({ submission, email: emails.get(submission.ownerUserId) ?? '未知邮箱' })), filter.data);
+      const bytes = await submissionWorkbook(rows);
+      await dependencies.submissions.auditTableExport(session.user, rows.map(r => r.submission), submissionContext(c, requestId));
+      c.header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      c.header('Content-Disposition', 'attachment; filename="chinavr-submissions.xlsx"');
+      return c.body(bytes);
+    } catch (error) { return handleError(c, error, requestId); }
   });
 
   app.post("/api/v1/admin/submissions/export", async (c) => {

@@ -1,0 +1,24 @@
+.galaxy-opening {
+  position: fixed; inset: 0; z-index: 10000;
+  display: grid; place-items: center; overflow: hidden;
+  background: #081e57; color: #fff;
+  font-family: "Smiley Sans", sans-serif;
+  opacity: 1; transition: opacity 250ms ease;
+}
+.galaxy-opening.is-leaving { opacity: 0; }
+.galaxy-opening-background { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; }
+.galaxy-opening::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at center, #04133338, #04133308 65%); pointer-events: none; }
+.galaxy-opening-content { position: relative; z-index: 1; width: min(440px, 76vw); text-align: center; text-shadow: 0 2px 16px #021039; }
+.galaxy-opening-percent { display: flex; align-items: baseline; justify-content: center; gap: 16px; margin-bottom: 24px; }
+.galaxy-opening-percent > span { font-size: clamp(20px, 3vw, 26px); letter-spacing: .08em; }
+.galaxy-opening-percent strong { font-size: clamp(56px, 8vw, 76px); font-weight: 400; line-height: 1; font-variant-numeric: tabular-nums; }
+.galaxy-opening-percent small { margin-left: 4px; font-size: .42em; }
+.galaxy-opening-track { height: 8px; overflow: hidden; border: 1px solid #e4f0ff70; border-radius: 999px; background: #071c5266; box-shadow: 0 0 24px #82c9ff28; }
+.galaxy-opening-fill { height: 100%; border-radius: inherit; background: linear-gradient(90deg, #90c8ff, #ecf7ff); box-shadow: 0 0 14px #b8ddff; transition: width 180ms ease-out; }
+.galaxy-opening-label { margin: 20px 0 0; font-size: 20px; letter-spacing: .15em; color: #edf5ff; }
+.galaxy-homepage .chapter-fallback { opacity: 1; filter: none; clip-path: inset(0); background: #02030d; transition: opacity 420ms ease; }
+.galaxy-homepage .chapter-fallback img { position: fixed; inset: 0; width: 100vw; height: 100vh; object-fit: cover; object-position: center; max-width: none; }
+.galaxy-homepage .chapter-fallback[data-ready="true"] { opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .galaxy-opening, .galaxy-opening-fill, .galaxy-homepage .chapter-fallback { transition: none; }
+}

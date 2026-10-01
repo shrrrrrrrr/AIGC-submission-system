@@ -200,6 +200,11 @@ export class SubmissionService {
     return submissions;
   }
 
+  async auditTableExport(user: User, submissions: Submission[], context?: SubmissionRequestContext): Promise<void> {
+    requireAdmin(user);
+    await Promise.all(submissions.map(submission => this.audit('admin.submission.export', user, submission, context, { format: 'xlsx' })));
+  }
+
   async adminTransition(user: User, submissionId: string, targetStatus: SubmissionStatus, reason: string, expectedStatus: SubmissionStatus, now = new Date(), context?: SubmissionRequestContext): Promise<Submission> {
     return this.repository.transaction(async (repository, transactionContext) => {
       requireAdmin(user);
