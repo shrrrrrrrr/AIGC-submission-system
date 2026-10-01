@@ -3,19 +3,49 @@ import { StarCloud } from './StarCloud.js';
 import { NebulaCloud } from './NebulaCloud.js';
 import { ForegroundDust } from './ForegroundDust.js';
 import sharedApproved from './approved.json';
+import { readProgressBuffer } from './loading.js';
 const approved={...sharedApproved,manualMorph:sharedApproved.morph,fixedMorph:Math.min(1,sharedApproved.morph+.85)};
 
 export const assetUrl = (path) => new URL(`${import.meta.env.BASE_URL}galaxy/${path.replace(/^\//, '')}`, document.baseURI).href;
-export async function readAsset(path, signal, binary = false) {
+export async function readAsset(path, signal, binary = false, onProgress, expectedBytes = 0) {
+  if (binary && import.meta.env.PROD && typeof DecompressionStream === 'function') {
+    try {
+      const compressed = await fetch(assetUrl(`${path}.gz`), { signal });
+      if (compressed.ok) {
+        const bytes = await readProgressBuffer(compressed, onProgress, expectedBytes);
+        const header = new Uint8Array(bytes, 0, Math.min(2, bytes.byteLength));
+        // A server using Content-Encoding may already have decompressed it.
+        if (header[0] === 0x1f && header[1] === 0x8b) {
+          const decoded = await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
+          if (expectedBytes && decoded.byteLength !== expectedBytes) throw new Error('点云长度不匹配');
+          onProgress?.(1);
+          return decoded;
+        }
+        if (compressed.headers.get('Content-Encoding')?.includes('gzip') && (!expectedBytes || bytes.byteLength === expectedBytes)) { onProgress?.(1); return bytes; }
+      }
+    } catch (error) {
+      // Aborted navigation must not start another download. A missing/broken
+      // compressed copy falls back to the unchanged original asset.
+      if (signal?.aborted) throw error;
+    }
+  }
   const response = await fetch(assetUrl(path), { signal });
   if (!response.ok) throw new Error(`${path}: HTTP ${response.status}`);
-  return binary ? response.arrayBuffer() : response.json();
+  if (!binary) return response.json();
+  const bytes = await readProgressBuffer(response, onProgress, expectedBytes);
+  if (expectedBytes && bytes.byteLength !== expectedBytes) throw new Error('点云长度不匹配');
+  onProgress?.(1);
+  return bytes;
 }
 const rad = THREE.MathUtils.degToRad;
 export class GalaxyInstance {
-  static async load(entry, signal) {
+  static async load(entry, signal, onProgress) {
     const base = entry.directory;
-    const metadata = await readAsset(`${base}/metadata.json`, signal);
+    // Fetch the tiny preset alongside metadata, not after the multi-MB point clouds.
+    const [metadata, preset] = await Promise.all([
+      readAsset(`${base}/metadata.json`, signal),
+      readAsset(entry.preset.replace(/^\//, ''), signal)
+    ]);
     // Keep the homepage layer set identical to the tuning page. The residual
     // image remains a debug-only backdrop; all point layers are available so
     // saved visibility and size/intensity settings apply consistently.
@@ -28,9 +58,12 @@ export class GalaxyInstance {
       metadata.nebula.layers.back,
       metadata.foreground
     ];
-    const buffers = await Promise.all(specs.map(s => readAsset(`${base}/${s.file}`, signal, true)));
-    signal.throwIfAborted();
-    const preset = await readAsset(entry.preset.replace(/^\//, ''), signal);
+    const bytes = specs.map(s => s.count * s.stride * Float32Array.BYTES_PER_ELEMENT);
+    const total = bytes.reduce((sum, value) => sum + value, 0), fractions = specs.map(() => 0);
+    const buffers = await Promise.all(specs.map((s, index) => readAsset(`${base}/${s.file}`, signal, true, value => {
+      fractions[index] = value;
+      onProgress?.(fractions.reduce((sum, fraction, i) => sum + fraction * bytes[i], 0) / total);
+    }, bytes[index])));
     signal.throwIfAborted();
     return new GalaxyInstance(entry, metadata, specs, buffers, preset);
   }
@@ -68,9 +101,14 @@ export class GalaxyInstance {
       const nebulaRaw = new Float32Array(buffers[layerIndex]);
       for (let i = 0; i < specs[layerIndex].count; i++) if (nebulaRaw[i * specs[layerIndex].stride + 8] <= approved.pointDensity) this.densityRetainedPoints++;
     }
+    this.compositionCache = new Map();
     this.bounds = this.measureComposition();
   }
   measureComposition() {
+    // Only morph, depth and orientation affect this fixed-camera composition.
+    // Resizing the viewport must not re-sort tens of thousands of unchanged points.
+    const key = `${this.activeRollDegrees}:${this.params.morph}:${this.params.depthStrength}`;
+    if (this.compositionCache.has(key)) return this.compositionCache.get(key);
     // Match the actual vertex shader's image->volume morph and Z expansion.
     // Retain 98% of the mid-nebula composition, excluding only sparse outliers.
     const compositionCloud = this.clouds.find((cloud) => cloud.layer === 'mid') || this.clouds[1];
@@ -92,7 +130,10 @@ export class GalaxyInstance {
     }
     xs.sort((a,b)=>a-b); ys.sort((a,b)=>a-b);
     const q = (a,p) => a[Math.floor((a.length - 1) * p)];
-    return { left:q(xs,.01), right:q(xs,.99), bottom:q(ys,.01), top:q(ys,.99) };
+    const bounds = { left:q(xs,.01), right:q(xs,.99), bottom:q(ys,.01), top:q(ys,.99) };
+    if (this.compositionCache.size >= 4) this.compositionCache.clear();
+    this.compositionCache.set(key, bounds);
+    return bounds;
   }
   resize(width, height, dpr) {
     this.width = width; this.height = height; this.dpr = dpr;
@@ -116,13 +157,18 @@ export class GalaxyInstance {
     const configuredScale = Number(this.presentationScale ?? this.metadata?.config?.camera?.presentationScale ?? 1);
     const isGalaxyE = this.entry.assetId === 'galaxy-e';
     const isNarrowGalaxyE = isGalaxyE && width < 700;
+    const fillDesktop = this.entry.assetId === 'galaxy-c' && width >= 700;
     // E is the tall source rolled for landscape presentation. Open its
     // framing further on desktop, while keeping a slightly wider mobile
     // safety margin so the portrait composition remains readable.
     const minimumScale = isGalaxyE ? (isNarrowGalaxyE ? .68 : .64) : .72;
     const presentationScale = THREE.MathUtils.clamp(isGalaxyE ? Math.min(configuredScale, minimumScale) : configuredScale, minimumScale, 1.2);
-    const requiredTanHalf = Math.max(safeX / aspect, safeY) * presentationScale / safeOverscan;
-    const minimumFovHalf = isGalaxyE ? (isNarrowGalaxyE ? 13 : 12) : 18;
+    // C fills desktop screens like object-fit: cover. Keep the existing fit
+    // and minimum field of view for phones and every other galaxy.
+    const fittedTanHalf = fillDesktop ? Math.min(safeX / aspect, safeY) : Math.max(safeX / aspect, safeY);
+    // Pull C back slightly from the initial desktop cover crop (about 10%).
+    const requiredTanHalf = fittedTanHalf * presentationScale / safeOverscan / (fillDesktop ? .9 : 1);
+    const minimumFovHalf = fillDesktop ? 1 : isGalaxyE ? (isNarrowGalaxyE ? 13 : 12) : 18;
     const tanHalf = Math.min(Math.tan(rad(42)), Math.max(Math.tan(rad(minimumFovHalf)), requiredTanHalf));
     this.camera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(tanHalf));
     this.camera.aspect = aspect; this.camera.updateProjectionMatrix();

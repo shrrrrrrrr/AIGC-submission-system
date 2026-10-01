@@ -1,10 +1,9 @@
 import { GalaxyHomepageRenderer } from './presentation.js';
-import { assetUrl } from './GalaxyInstance.js';
 import { setupHeroRing } from './hero-ring.js';
 import { setupNewsReel } from './news-reel.js';
 
 // Every observer, animation and request belongs to this mount, including StrictMode remounts.
-export function mountGalaxyHome(root) {
+export function mountGalaxyHome(root, callbacks = {}) {
   let renderer = null;
   let frame = 0;
   let disposed = false;
@@ -20,7 +19,7 @@ export function mountGalaxyHome(root) {
     catch (error) { console.error('主页交互初始化失败', error); }
   }
   try {
-    renderer = new GalaxyHomepageRenderer(root.querySelector('[data-galaxy-canvas]'), root);
+    renderer = new GalaxyHomepageRenderer(root.querySelector('[data-galaxy-canvas]'), root, callbacks);
     void renderer.initialize();
     const tick = time => {
       if (disposed) return;
@@ -30,11 +29,7 @@ export function mountGalaxyHome(root) {
     frame = requestAnimationFrame(tick);
   } catch (error) {
     console.warn('银河使用静态背景：', error);
-    root.querySelectorAll('[data-galaxy-section]').forEach(section => {
-      section.style.backgroundImage = `url("${assetUrl(`galaxies/${section.dataset.galaxySection}/residual.webp`)}")`;
-      section.style.backgroundSize = 'cover';
-      section.style.backgroundPosition = 'center';
-    });
+    // React's static galaxy previews remain usable when WebGL is unavailable.
   }
   return () => {
     disposed = true;

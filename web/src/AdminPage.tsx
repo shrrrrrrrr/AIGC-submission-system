@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api, ApiError, downloadFile } from "./api";
 import { normalizePrecheckFindings } from "../../src/submission/types";
 import type { SubmissionDraft } from "../../src/submission/types";
+import { SubmissionTable } from './SubmissionTable';
 
 type AdminSummary = { id: string; receiptNo: string; title: string; direction: string; workForm: string; currentStatus: string; currentVersionNo: number; submittedAt: string | null; updatedAt: string; submitterEmail: string };
 type AdminSubmission = Omit<AdminSummary, "title" | "direction" | "workForm"> & { ownerUserId: string; draftRevision: number; draft: SubmissionDraft; mediaLinks: Array<{ id: string; purpose: string; provider: string | null; precheckStatus: string; failureCode: string | null; precheckFindings: Array<{ code: string; field: string; message: string }>; checkedAt: string | null; expiresAt: string | null }> };
@@ -15,6 +16,7 @@ const formLabels: Record<string, string> = { narrative: "叙事影像", document
 function formatDate(value: string | null): string { return value ? new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "未正式提交"; }
 
 export function AdminPage() {
+  const [view, setView] = useState<'review' | 'table'>(() => window.location.hash.includes('view=table') ? 'table' : 'review');
   const [items, setItems] = useState<AdminSummary[]>([]);
   const [selected, setSelected] = useState<AdminSubmission | null>(null);
   const [targetStatus, setTargetStatus] = useState("");
@@ -88,9 +90,10 @@ export function AdminPage() {
 
   return <section className="admin-page section-pad" aria-labelledby="admin-title">
     <div className="section-kicker"><span>ADMIN / 01</span><span>REVIEW DESK</span></div>
-    <div className="admin-heading"><div><h1 id="admin-title">投稿审查工作台</h1><p>普通管理员可查看投稿资料、复制或打开已核验链接，并导出已提交作品信息。</p></div><div className="admin-heading-actions"><button className="button button-small button-outline" type="button" onClick={() => void exportSubmissions()} disabled={working}>导出全部作品</button><button className="button button-small button-outline" type="button" onClick={() => void loadList()} disabled={loading || working}>刷新列表</button></div></div>
-    {notice && <div className="form-notice info" role="status">{notice}{loginRequired && <> <a href="#login">前往管理员登录</a></>}</div>}
-    <div className="admin-grid">
+    <div className="admin-heading"><div><h1 id="admin-title">投稿审查工作台</h1><p>普通管理员可查看投稿资料、复制或打开已核验链接，并导出已提交作品信息。</p></div>{view === 'review' && <div className="admin-heading-actions"><button className="button button-small button-outline" type="button" onClick={() => void exportSubmissions()} disabled={working}>导出全部作品</button><button className="button button-small button-outline" type="button" onClick={() => void loadList()} disabled={loading || working}>刷新列表</button></div>}</div>
+    <div className="admin-view-switch"><button type="button" className="button button-small button-outline" aria-pressed={view === 'review'} onClick={() => setView('review')}>投稿审查</button><button type="button" className="button button-small button-outline" aria-pressed={view === 'table'} onClick={() => setView('table')}>投稿汇总表</button></div>
+    {view === 'review' && notice && <div className="form-notice info" role="status">{notice}{loginRequired && <> <a href="#login">前往管理员登录</a></>}</div>}
+    {view === 'table' ? <SubmissionTable /> : <div className="admin-grid">
       <aside className="admin-list" aria-label="投稿列表">{loading && <p className="muted-copy">正在加载投稿…</p>}{!loading && items.length === 0 && <p className="muted-copy">暂无投稿。</p>}{items.map((item) => <button className={`admin-item ${selected?.id === item.id ? "is-active" : ""}`} type="button" key={item.id} onClick={() => void loadDetail(item.id)}><span className="mono">{item.receiptNo}</span><strong>{item.title}</strong><small>{statusLabels[item.currentStatus] ?? item.currentStatus} · {formatDate(item.submittedAt)} · {item.submitterEmail}</small></button>)}</aside>
       <article className="admin-detail">
         {!selected && <p className="muted-copy">选择一份投稿查看详情。</p>}
@@ -102,6 +105,6 @@ export function AdminPage() {
           {availableTransitions.length > 0 && <div className="admin-transition"><h3>审查决定</h3><label htmlFor="admin-target">下一状态</label><select id="admin-target" value={targetStatus} onChange={(event) => setTargetStatus(event.target.value)}>{availableTransitions.map((status) => <option key={status} value={status}>{statusLabels[status] ?? status}</option>)}</select><label htmlFor="admin-reason">处理原因</label><textarea id="admin-reason" value={reason} onChange={(event) => setReason(event.target.value)} minLength={2} maxLength={1000} placeholder="填写本次审查决定的原因" /><button className="button button-cinnabar" type="button" onClick={() => void submitTransition()} disabled={working || reason.trim().length < 2}>{working ? "正在保存…" : "保存状态决定"}</button></div>}
         </>}
       </article>
-    </div>
+    </div>}
   </section>;
 }

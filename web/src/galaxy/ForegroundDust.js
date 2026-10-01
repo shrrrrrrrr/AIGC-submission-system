@@ -12,9 +12,10 @@ export class ForegroundDust {
     const seed = new Float32Array(count);
     for (let i = 0; i < count; i += 1) {
       const o = i * stride;
-      position.set(data.subarray(o, o + 3), i * 3);
+      const p = i * 3;
+      position[p] = data[o]; position[p + 1] = data[o + 1]; position[p + 2] = data[o + 2];
       size[i] = data[o + 3];
-      color.set(data.subarray(o + 4, o + 7), i * 3);
+      color[p] = data[o + 4]; color[p + 1] = data[o + 5]; color[p + 2] = data[o + 6];
       alpha[i] = data[o + 7];
       seed[i] = ((i * 1103515245 + 12345) >>> 0) / 4294967296;
     }
