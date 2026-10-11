@@ -60,7 +60,7 @@ export function GalaxyHome({ onNavigate }: GalaxyHomeProps) {
         </section>
       </div>
 
-      <section className="facts-band" data-reveal aria-label="大会关键信息"><div><span>大会时间</span><strong>2026.11.06—11.08</strong><small>中国 · 广州</small></div><div><span>投稿截止</span><strong>2026.10.12</strong><small>23:59:59 前完成提交</small></div><div><span>作品主题</span><strong>AI + VR</strong><small>前沿科技、传统文化、科幻作品</small></div></section>
+      <section className="facts-band" data-reveal aria-label="大会关键信息"><div><span>大会时间</span><strong>2026.11.06—11.08</strong><small>中国 · 广州</small></div><div><span>投稿截止</span><strong>2026.10.20</strong><small>24:00 截止（北京时间）</small></div><div><span>作品主题</span><strong>AI + VR</strong><small>前沿科技、传统文化、科幻作品</small></div></section>
 
       <div className="galaxy-chapter" data-galaxy-section="galaxy-b" aria-label="Galaxy B 单元介绍">
         <GalaxyStaticBackground id="galaxy-b" />
@@ -73,7 +73,7 @@ export function GalaxyHome({ onNavigate }: GalaxyHomeProps) {
 
       <div className="galaxy-chapter" data-galaxy-section="galaxy-c" aria-label="Galaxy C 时间节点与评审">
         <GalaxyStaticBackground id="galaxy-c" />
-        <section className="story-section timeline-section" id="timeline" data-reveal data-reveal-group><div className="section-index" /><div className="section-head"><h2>把想法，<em>送到展映现场</em></h2><p>从提交链接到大会展映，每一步都可以被看见。</p></div><div className="timeline-grid"><article><span>NOW → 10.12</span><h3>作品征集</h3><p>注册账号，填写作品资料，提交公开视频链接与创作说明。</p></article><article><span>10 月</span><h3>核验与评审</h3><p>组委会核验链接与材料，专家从创意、表达和技术完成度进行评审。</p></article><article><span>11.06—11.08</span><h3>大会展映</h3><p>优秀作品在第26届中国虚拟现实大会现场与线上渠道展示。</p></article></div></section>
+        <section className="story-section timeline-section" id="timeline" data-reveal data-reveal-group><div className="section-index" /><div className="section-head"><h2>把想法，<em>送到展映现场</em></h2><p>从提交链接到大会展映，每一步都可以被看见。</p></div><div className="timeline-grid"><article><span>NOW → 10.20 24:00</span><h3>作品征集</h3><p>注册账号，填写作品资料，提交公开视频链接与创作说明。</p></article><article><span>10 月</span><h3>核验与评审</h3><p>组委会核验链接与材料，专家从创意、表达和技术完成度进行评审。</p></article><article><span>11.06—11.08</span><h3>大会展映</h3><p>优秀作品在第26届中国虚拟现实大会现场与线上渠道展示。</p></article></div></section>
         <section className="story-section jury-section" data-reveal data-reveal-group><div className="section-index" /><div className="jury-grid"><div><h2>让技术服务于<br /><em>一次真实的观看</em></h2><p>我们关注作品是否建立了独特的视觉语言，也关注 AI 与人的创作关系是否清晰、诚实而有创造力。</p></div><div className="score-list"><div><b>01</b><span><strong>创意与表达</strong><small>主题、叙事、视觉语言与情绪传达</small></span></div><div><b>02</b><span><strong>技术与完成度</strong><small>视听质量、空间体验与整体完成度</small></span></div><div><b>03</b><span><strong>AI 参与与创新</strong><small>生成式工具的使用方式与创作价值</small></span></div></div></div></section>
       </div>
 
