@@ -1,5 +1,5 @@
 import { StrictMode, useEffect, useRef, useState } from "react";
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
 import "./styles/home.css";
@@ -15,6 +15,7 @@ import { AdminPage } from "./AdminPage";
 import { SocietyPage } from "./SocietyPage";
 import { GalaxyHome } from "./GalaxyHome";
 import { api, ApiError } from "./api";
+import { SubmissionNotifications, useSubmissionWindow } from "./SubmissionNotifications";
 
 type Route = "home" | "login" | "register" | "submit" | "admin" | "society";
 type Notice = { tone: "success" | "error" | "info"; text: string };
@@ -26,6 +27,7 @@ function App() {
   const [route, setRoute] = useState<Route>(readRoute);
   const [menuOpen, setMenuOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<PublicUser | null>(null);
+  const submissionWindow = useSubmissionWindow();
 
   useEffect(() => {
     const onHashChange = () => setRoute(readRoute());
@@ -66,8 +68,8 @@ function App() {
 
   return <div className={`site-shell route-${route}`}>
     <a className="skip-link" href="#main-content">跳到主要内容</a>
-    <Header currentUser={currentUser} menuOpen={menuOpen} onMenuToggle={() => setMenuOpen((open) => !open)} onNavigate={navigate} onLogout={logout} hideBrand={route === "society"} homePage={route === "home"} />
-    <main id="main-content">{route === "home" ? <Home onNavigate={navigate} /> : route === "login" ? <LoginPage onNavigate={navigate} onAuthenticated={setCurrentUser} /> : route === "register" ? <RegisterPage onNavigate={navigate} /> : route === "admin" ? <AdminPage /> : route === "society" ? <SocietyPage onNavigate={navigate} /> : <SubmissionPage />}</main>
+    <Header currentUser={currentUser} menuOpen={menuOpen} onMenuToggle={() => setMenuOpen((open) => !open)} onNavigate={navigate} onLogout={logout} hideBrand={route === "society"} homePage={route === "home"} notifications={<SubmissionNotifications closed={submissionWindow.closed} route={route} user={currentUser} />} />
+    <main id="main-content">{route === "home" ? <Home onNavigate={navigate} /> : route === "login" ? <LoginPage onNavigate={navigate} onAuthenticated={setCurrentUser} /> : route === "register" ? <RegisterPage onNavigate={navigate} /> : route === "admin" ? <AdminPage /> : route === "society" ? <SocietyPage onNavigate={navigate} /> : <SubmissionPage submissionClosed={submissionWindow.closed} checkingDeadline={submissionWindow.loading} />}</main>
     <Footer onNavigate={navigate} />
   </div>;
 }
@@ -77,7 +79,7 @@ function readRoute(): Route {
   return hash === "login" ? "login" : hash === "register" ? "register" : hash === "submit" ? "submit" : hash === "admin" ? "admin" : hash === "society" ? "society" : "home";
 }
 
-function Header({ currentUser, menuOpen, onMenuToggle, onNavigate, onLogout, hideBrand, homePage }: { currentUser: PublicUser | null; menuOpen: boolean; onMenuToggle: () => void; onNavigate: (href: string) => void; onLogout: () => Promise<void>; hideBrand: boolean; homePage: boolean }) {
+function Header({ currentUser, menuOpen, onMenuToggle, onNavigate, onLogout, hideBrand, homePage, notifications }: { currentUser: PublicUser | null; menuOpen: boolean; onMenuToggle: () => void; onNavigate: (href: string) => void; onLogout: () => Promise<void>; hideBrand: boolean; homePage: boolean; notifications: ReactNode }) {
   const localPreview = (window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost") && window.location.port === "5173";
   const accountRef = useRef<HTMLDivElement>(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
@@ -112,6 +114,7 @@ function Header({ currentUser, menuOpen, onMenuToggle, onNavigate, onLogout, hid
         </>}
         <a className="button button-small button-cinnabar" href="#submit" onClick={() => onNavigate("#submit")}>立即投稿 <span aria-hidden="true">↗</span></a>
       </nav>
+      {notifications}
     </div>
   </header>;
 }

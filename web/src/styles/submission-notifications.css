@@ -1,0 +1,19 @@
+.submission-notification-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex: 0 0 auto; min-height: 40px; padding: 8px 12px; margin-left: 16px; border: 1px solid currentColor; border-radius: 4px; color: var(--warm-white); background: transparent; font: inherit; cursor: pointer; }
+.submission-notification-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--cinnabar); }
+.submission-notification-button:focus-visible, .submission-notification-dialog button:focus-visible { outline: 3px solid var(--cyan); outline-offset: 3px; }
+.submission-notification-dialog { box-sizing: border-box; width: min(620px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); margin: auto; padding: clamp(24px, 5vw, 42px); overflow: auto; border: 1px solid #e1d9ca; border-top: 5px solid var(--cinnabar); border-radius: 12px; background: var(--warm-white, #fffdf8); color: var(--ink, #17191d); box-shadow: 0 24px 80px #071a3455; font-family: "Smiley Sans", sans-serif; }
+.submission-notification-dialog::backdrop { background: #071a34b3; }
+.submission-notification-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; color: var(--muted); font-size: 13px; }
+.submission-notification-top button { padding: 8px; color: var(--ink); background: transparent; font: inherit; cursor: pointer; }
+.submission-notification-dialog h2 { margin: 24px 0; color: var(--cinnabar); font-size: clamp(26px, 5vw, 34px); line-height: 1.4; }
+.submission-notification-dialog p { margin: 18px 0; font-size: 19px; line-height: 1.8; overflow-wrap: anywhere; }
+.submission-notification-dialog .submission-notification-receipt { padding: 12px 16px; border-left: 3px solid #217eb0; color: #135c88; background: #eaf3f7; }
+.submission-notification-dialog .submission-notification-hint { color: var(--muted); font-size: 15px; }
+.submission-notification-item { display: grid; gap: 12px; width: 100%; padding: 20px; color: var(--ink); background: #eeeae2; text-align: left; font: inherit; font-size: 21px; cursor: pointer; }
+.submission-notification-item small { color: var(--muted); font-size: 14px; }
+.submission-deadline-notice { margin: 20px 0; }
+@media (max-width: 760px) {
+  .submission-notification-button { order: 2; margin-left: auto; padding: 8px; font-size: 14px; }
+  .header-inner > .menu-toggle { order: 3; }
+  .submission-notification-dialog p { font-size: 17px; }
+}

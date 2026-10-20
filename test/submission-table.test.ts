@@ -5,7 +5,7 @@ import { createApp } from '../src/app.js';
 import { AuthService } from '../src/auth/service.js';
 import { InMemoryAuthRepository } from '../src/auth/repository.js';
 import { InMemorySubmissionRepository } from '../src/submission/repository.js';
-import { SubmissionService } from '../src/submission/service.js';
+import { SubmissionService } from './helpers/submission-service.js';
 import { tableHeaders, type TablePage } from '../src/submission/table.js';
 
 const users = new InMemoryAuthRepository();

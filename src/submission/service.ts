@@ -1,6 +1,7 @@
 import { newId, newOpaqueToken } from "../auth/crypto.js";
 import type { AuditEvent, User } from "../auth/types.js";
 import { SubmissionError } from "./errors.js";
+import { submissionWindow, SUBMISSION_CLOSED_MESSAGE } from "./deadline.js";
 import type { SubmissionRepository, SubmissionTransactionContext } from "./repository.js";
 import type { CreateDraftInput, DraftPatch, MediaLink, MediaPurpose, Submission, SubmissionDirection, SubmissionDraft, SubmissionStatus, WorkForm } from "./types.js";
 import { MEDIA_PURPOSES, SUBMISSION_DIRECTIONS, SUBMISSION_STATUSES, WORK_FORMS } from "./types.js";
@@ -24,15 +25,24 @@ const ALLOWED_STATUS_TRANSITIONS: Record<SubmissionStatus, readonly SubmissionSt
 };
 
 export class SubmissionService {
-  constructor(private readonly repository: SubmissionRepository, approvedVideoHosts: readonly string[] = [], private readonly auditWriter?: (event: AuditEvent) => Promise<void>) {
+  constructor(private readonly repository: SubmissionRepository, approvedVideoHosts: readonly string[] = [], private readonly auditWriter?: (event: AuditEvent) => Promise<void>, private readonly clock: () => Date = () => new Date()) {
     this.approvedVideoHosts = new Set(approvedVideoHosts.map((host) => host.trim().toLowerCase()).filter(Boolean));
   }
 
   private readonly approvedVideoHosts: Set<string>;
 
+  getWindow() {
+    return submissionWindow(this.clock());
+  }
+
+  private requireOpen(): void {
+    if (this.getWindow().closed) throw new SubmissionError("SUBMISSION_CLOSED", 403, SUBMISSION_CLOSED_MESSAGE);
+  }
+
   async createDraft(user: User, input: CreateDraftInput, idempotencyKey: string, now = new Date(), context?: SubmissionRequestContext): Promise<Submission> {
     return this.repository.transaction(async (repository, transactionContext) => {
       requireParticipant(user);
+      this.requireOpen();
       const key = normalizeIdempotencyKey(idempotencyKey);
       validateCreateInput(input);
       const fingerprint = JSON.stringify({ operation: "createDraft", title: input.title.trim(), direction: input.direction, workForm: input.workForm });
@@ -70,6 +80,8 @@ export class SubmissionService {
         createdAt: now,
         updatedAt: now,
       };
+      // Recheck after receipt allocation / transaction waits, immediately before writing.
+      this.requireOpen();
       await repository.insert(submission);
       await repository.saveIdempotency({ ownerUserId: user.id, key, fingerprint, submissionId: submission.id, response: submission });
       await this.audit("submission.create_draft", user, submission, context, undefined, transactionContext);
@@ -89,6 +101,7 @@ export class SubmissionService {
   async patchDraft(user: User, submissionId: string, patch: DraftPatch, ifMatch: string | undefined, now = new Date(), context?: SubmissionRequestContext): Promise<Submission> {
     return this.repository.transaction(async (repository, transactionContext) => {
       const submission = await getOwned(repository, user, submissionId);
+      this.requireOpen();
       requireEditable(submission);
       assertRevision(submission.draftRevision, ifMatch);
       validateDraftPatch(patch);
@@ -116,6 +129,7 @@ export class SubmissionService {
   async upsertMediaLink(user: User, submissionId: string, purpose: MediaPurpose, originalUrl: string, ifMatch: string | undefined, idempotencyKey: string, now = new Date(), context?: SubmissionRequestContext): Promise<{ submission: Submission; link: MediaLink }> {
     return this.repository.transaction(async (repository, transactionContext) => {
       const submission = await getOwned(repository, user, submissionId);
+      this.requireOpen();
       requireEditable(submission);
       if (!isMediaPurpose(purpose)) throw new SubmissionError("VALIDATION_ERROR", 422, "链接用途无效", [{ field: "purpose", reason: "INVALID_ENUM" }]);
       const key = normalizeIdempotencyKey(idempotencyKey);
@@ -159,6 +173,7 @@ export class SubmissionService {
       };
       const nextLinks = oldLink ? submission.mediaLinks.map((item) => item.id === oldLink.id ? link : item) : [...submission.mediaLinks, link];
       const updated = { ...submission, mediaLinks: nextLinks, draftRevision: submission.draftRevision + 1, updatedAt: now };
+      this.requireOpen();
       await repository.update(updated);
       await repository.saveIdempotency({ ownerUserId: user.id, key, fingerprint, submissionId, mediaLinkId: link.id, response: updated });
       await this.audit("submission.media_link_upsert", user, updated, context, { purpose }, transactionContext);
@@ -169,6 +184,7 @@ export class SubmissionService {
   async precheckMediaLink(user: User, submissionId: string, linkId: string, now = new Date(), context?: SubmissionRequestContext): Promise<{ submission: Submission; link: MediaLink }> {
     return this.repository.transaction(async (repository, transactionContext) => {
       const submission = await getOwned(repository, user, submissionId);
+      this.requireOpen();
       requireEditable(submission);
       const current = submission.mediaLinks.find((link) => link.id === linkId);
       if (!current) throw new SubmissionError("MEDIA_LINK_NOT_FOUND", 404, "链接不存在");
@@ -244,6 +260,7 @@ export class SubmissionService {
   async submit(user: User, submissionId: string, ifMatch: string | undefined, now = new Date(), context?: SubmissionRequestContext): Promise<Submission> {
     return this.repository.transaction(async (repository, transactionContext) => {
       const submission = await getOwned(repository, user, submissionId);
+      this.requireOpen();
       requireEditable(submission);
       assertRevision(submission.draftRevision, ifMatch);
       await repository.lockSubmissionQuota(user.id);
@@ -260,6 +277,8 @@ export class SubmissionService {
           message: issue.message,
         })));
       }
+      // Quota locking may span the deadline. Never trust the request-start timestamp.
+      this.requireOpen();
       const updated = { ...submission, currentStatus: "submitted" as const, submittedAt: submission.submittedAt ?? now, draftRevision: submission.draftRevision + 1, updatedAt: now };
       await repository.update(updated);
       await this.audit("submission.submit", user, updated, context, undefined, transactionContext);

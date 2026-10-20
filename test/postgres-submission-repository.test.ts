@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import type { Pool, PoolClient, QueryResult } from "pg";
 import { PostgresSubmissionRepository } from "../src/submission/postgres-repository.js";
-import { SubmissionService } from "../src/submission/service.js";
+import { SubmissionService } from "./helpers/submission-service.js";
 import type { User } from "../src/auth/types.js";
 
 const user: User = {
