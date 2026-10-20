@@ -125,6 +125,7 @@ export function SubmissionNotifications({ closed, route, user }: { closed: boole
           {participantId && !receipts && <p role="status">正在核对您的投稿回执…</p>}
           {receipts?.failed && <p role="status">暂时无法读取投稿回执，请稍后重试。<button type="button" className="text-button" onClick={() => setRetry(value => value + 1)}>重新读取</button></p>}
           <p>请您持续关注投稿邮箱和大会相关信息，预计评审结束时间为十月三十号，我们会在评审完毕后向投稿者的邮箱发送通知！</p>
+          <p>作品提交成功后，组委会将向您提交作品时使用的邮箱发送投稿确认邮件。如有疑问，请于北京时间2026年10月21日24:00前致电 <a className="submission-notification-contact" href="tel:15838851968">15838851968</a>。</p>
           {!user && <p className="submission-notification-hint">登录投稿账号后可查看您的成功投递信息。</p>}
           <button type="button" className="button button-cinnabar" onClick={() => setView(null)}>我知道了</button>
         </>}
