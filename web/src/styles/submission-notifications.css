@@ -12,6 +12,7 @@
 .submission-notification-dialog .submission-notification-contact { color: var(--cinnabar); text-decoration: underline; text-underline-offset: 4px; white-space: nowrap; }
 .submission-notification-item { display: grid; gap: 12px; width: 100%; padding: 20px; color: var(--ink); background: #eeeae2; text-align: left; font: inherit; font-size: 21px; cursor: pointer; }
 .submission-notification-item small { color: var(--muted); font-size: 14px; }
+.submission-notification-item + .submission-notification-item { margin-top: 12px; }
 .submission-deadline-notice { margin: 20px 0; }
 @media (max-width: 760px) {
   .submission-notification-button { order: 2; margin-left: auto; padding: 8px; font-size: 14px; }

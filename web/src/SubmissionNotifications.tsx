@@ -63,21 +63,22 @@ export function useSubmissionWindow() {
 }
 
 export function SubmissionNotifications({ closed, route, user }: { closed: boolean; route: string; user: NoticeUser | null }) {
-  const [view, setView] = useState<"list" | "message" | null>(null);
+  const [view, setView] = useState<"list" | "supplement" | "message" | null>(null);
   const [receiptState, setReceiptState] = useState<{ userId: string; items: Receipt[]; failed: boolean } | null>(null);
   const [retry, setRetry] = useState(0);
   const dialog = useRef<HTMLDialogElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
   const participantId = user?.roles.includes("participant") ? user.id : null;
-  // No persistent "already read" flag: each public page entry shows the notice.
-  useEffect(() => { setView(closed && route !== "admin" ? "message" : null); }, [closed, route]);
+  // The latest announcement opens on public page entry. Deadline polling must
+  // not reopen either announcement after the visitor dismisses the dialog.
+  useEffect(() => { setView(route !== "admin" ? "supplement" : null); }, [route]);
   useEffect(() => {
-    const returnToSite = (event: PageTransitionEvent) => { if (event.persisted && closed && route !== "admin") setView("message"); };
+    const returnToSite = (event: PageTransitionEvent) => { if (event.persisted && route !== "admin") setView("supplement"); };
     window.addEventListener("pageshow", returnToSite);
     return () => window.removeEventListener("pageshow", returnToSite);
-  }, [closed, route]);
+  }, [route]);
   useEffect(() => {
-    if (!closed || !participantId || !view) return;
+    if (!closed || !participantId || view !== "message") return;
     const abort = new AbortController();
     let disposed = false;
     const timeout = window.setTimeout(() => abort.abort(), 10_000);
@@ -112,15 +113,22 @@ export function SubmissionNotifications({ closed, route, user }: { closed: boole
   const receipts = receiptState?.userId === participantId ? receiptState : null;
   return <>
     <button className="submission-notification-button" type="button" aria-label="通知" aria-haspopup="dialog" onClick={() => setView("list")}>
-      <svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg> 通知{closed && <span className="submission-notification-dot" aria-hidden="true" />}
+      <svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg> 通知<span className="submission-notification-dot" aria-hidden="true" />
     </button>
     {view && createPortal(<dialog ref={dialog} className="submission-notification-dialog" aria-labelledby="submission-notification-title" onCancel={() => setView(null)} onClick={event => { if (event.target === event.currentTarget) setView(null); }}>
       <div className="submission-notification-top"><span>CHINAVR 2026 · 大会通知</span><button ref={closeButton} type="button" aria-label="关闭通知" onClick={() => setView(null)}>关闭 ×</button></div>
-      <h2 id="submission-notification-title">{view === "list" ? "通知" : "投稿已截止，感谢您的参与！"}</h2>
-      {view === "list" ? closed
-        ? <button className="submission-notification-item" type="button" onClick={() => setView("message")}><span>投稿截止与评审安排</span><small>2026 年 10 月 21 日 · 查看通知 →</small></button>
-        : <p>暂无通知。投稿将于北京时间 2026 年 10 月 20 日 24:00 截止。</p>
-        : <>
+      <h2 id="submission-notification-title">{view === "list" ? "通知" : view === "supplement" ? "关于补充作品及创作团队信息的通知" : "投稿已截止，感谢您的参与！"}</h2>
+      {view === "list" ? <>
+          <button className="submission-notification-item" type="button" onClick={() => setView("supplement")}><span>关于补充作品及创作团队信息的通知</span><small>最新公告 · 查看通知 →</small></button>
+          {closed && <button className="submission-notification-item" type="button" onClick={() => setView("message")}><span>投稿截止与评审安排</span><small>2026 年 10 月 21 日 · 查看通知 →</small></button>}
+        </> : view === "supplement" ? <>
+          <p>各位投稿者：</p>
+          <p>为筹备第二十六届中国虚拟现实大会 VR 之夜“生成式影像单元”展示活动，现需补充征集作品及创作团队的相关信息，包括：<strong>所在省市、院校／单位名称、参与制作人数，以及学段或工作岗位。</strong></p>
+          <p>请留意您投稿账号注册邮箱中的信息补充邮件，下载邮件中的 <strong>Excel 附件，在黄色区域填写相关信息</strong>。填写完成后，请将 Excel 文件作为附件，<strong>直接回复该邮件</strong>。</p>
+          <p><strong>每部作品填写一行。</strong>如提交了多部作品，请分别填写，并注明每部作品的<strong>作品名称和投稿编号</strong>，以便核对。</p>
+          <p>感谢您的支持与配合！如有疑问，请致电 <a className="submission-notification-contact" href="tel:15838851968">15838851968</a>。</p>
+          <button type="button" className="button button-cinnabar" onClick={() => setView(null)}>我知道了</button>
+        </> : <>
           {receipts?.items.map(item => <p className="submission-notification-receipt" key={item.id}>您的稿件“{item.title}”已成功投递！</p>)}
           {participantId && !receipts && <p role="status">正在核对您的投稿回执…</p>}
           {receipts?.failed && <p role="status">暂时无法读取投稿回执，请稍后重试。<button type="button" className="text-button" onClick={() => setRetry(value => value + 1)}>重新读取</button></p>}
