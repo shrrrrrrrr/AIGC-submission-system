@@ -69,6 +69,11 @@ export function createApp(dependencies: AppDependencies): Hono<RequestContext> {
   app.use("/api/v1/submissions*", bodyLimit({ maxSize: 64 * 1024, onError: (c) => c.json(errorBody("BODY_TOO_LARGE", "请求内容过大", c.get("requestId")), 413) }));
   app.use("/api/v1/admin/submissions*", bodyLimit({ maxSize: 16 * 1024, onError: (c) => c.json(errorBody("BODY_TOO_LARGE", "请求内容过大", c.get("requestId")), 413) }));
 
+  app.get("/api/v1/submission-window", (c) => {
+    if (!dependencies.submissions) return c.json(errorBody("SUBMISSIONS_UNAVAILABLE", "投稿服务暂不可用", c.get("requestId")), 503);
+    return c.json(dependencies.submissions.getWindow());
+  });
+
   app.post("/api/v1/auth/register", async (c) => {
     const requestId = c.get("requestId");
     const body = registerSchema.safeParse(await safeJson(c));
@@ -379,6 +384,19 @@ export function createApp(dependencies: AppDependencies): Hono<RequestContext> {
     } catch (error) {
       return handleError(c, error, requestId);
     }
+  });
+
+  app.get("/api/v1/submissions/receipts", async (c) => {
+    const requestId = c.get("requestId");
+    const session = await dependencies.auth.getSession(getCookie(c, sessionCookieName));
+    if (!session) return c.json(errorBody("UNAUTHENTICATED", "请先登录", requestId), 401);
+    if (!dependencies.submissions) return c.json(errorBody("SUBMISSIONS_UNAVAILABLE", "投稿服务暂不可用", requestId), 503);
+    try {
+      const items = (await dependencies.submissions.list(session.user))
+        .filter(item => item.submittedAt !== null)
+        .map(item => ({ id: item.id, title: item.draft.title, receiptNo: item.receiptNo, submittedAt: item.submittedAt!.toISOString() }));
+      return c.json({ items, requestId });
+    } catch (error) { return handleError(c, error, requestId); }
   });
 
   app.get("/api/v1/submissions/:id", async (c) => {

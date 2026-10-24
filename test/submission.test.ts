@@ -10,7 +10,7 @@ import { expandApprovedVideoHosts, normalizeVideoShareInput, VideoUrlError } fro
 import { inspectVideoLink } from "../src/submission/precheck.js";
 import { SubmissionError } from "../src/submission/errors.js";
 import { InMemorySubmissionRepository } from "../src/submission/repository.js";
-import { SubmissionService } from "../src/submission/service.js";
+import { SubmissionService } from "./helpers/submission-service.js";
 
 const cases: Array<[string, () => Promise<void>]> = [];
 function test(name: string, fn: () => Promise<void>): void {
